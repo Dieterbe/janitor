@@ -1,0 +1,25 @@
+mode: set
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/fingerprinter.go:18.61,26.21 5 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/fingerprinter.go:31.2,36.21 5 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/fingerprinter.go:26.21,28.3 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/fingerprinter.go:36.21,39.3 2 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/perr.go:3.22,4.16 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/perr.go:4.16,5.13 1 0
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:15.62,31.2 9 0
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:33.85,38.76 3 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:73.2,73.12 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:38.76,41.17 3 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:45.3,45.22 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:49.3,49.29 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:53.3,53.17 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:57.3,58.17 2 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:62.3,62.19 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:66.3,71.13 4 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:41.17,44.4 2 0
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:45.22,48.4 2 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:49.29,52.4 2 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:53.17,56.4 2 0
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:58.17,61.4 2 0
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/zip.go:62.19,65.4 2 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/perr.go:3.22,4.16 1 1
+github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip/perr.go:4.16,5.13 1 0
