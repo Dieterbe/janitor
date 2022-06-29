@@ -2,6 +2,7 @@ package hdc
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -28,23 +29,28 @@ func TestFingerprinter(t *testing.T) {
 	var foo, bar [32]byte
 	copy(foo[:], fooSlice)
 	copy(bar[:], barSlice)
+	fmt.Printf("foo %x\n", foo)
 
 	var fp Sha256FingerPrinter
 	fp.Add("foo", strings.NewReader("foo"))
 
-	var exp Sha256FingerPrinter
-	exp.Content = foo
-	exp.ContentNamed = xor(foo, foo)
+	exp := Sha256FingerPrinter{
+		Prints: []Print{
+			{
+				Path: "foo",
+				Hash: foo,
+			},
+		},
+	}
 
-	if diff := cmp.Diff(fp, exp); diff != "" {
+	if diff := cmp.Diff(exp, fp); diff != "" {
 		t.Errorf("Fingerprint mismatch after adding foo (-want +got):\n%s", diff)
 	}
 
 	fp.Add("bar", strings.NewReader("bar"))
-	exp.Content = xor(foo, bar)
-	exp.ContentNamed = xor(xor(xor(foo, foo), bar), bar)
+	exp.Prints = append(exp.Prints, Print{Path: "bar", Hash: bar})
 
-	if diff := cmp.Diff(fp, exp); diff != "" {
+	if diff := cmp.Diff(exp, fp); diff != "" {
 		t.Errorf("Fingerprint mismatch after adding bar (-want +got):\n%s", diff)
 	}
 
