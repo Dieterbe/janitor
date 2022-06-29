@@ -8,10 +8,19 @@ import (
 )
 
 func Run() {
-	p := tea.NewProgram(newModel())
-	if err := p.Start(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: hdc <path> [<path>...]")
 		os.Exit(1)
 	}
-	fmt.Println("clean exit i guess")
+
+	fd, err := tea.LogToFile("hdc.log", "")
+	perr(err)
+	defer fd.Close()
+
+	p := tea.NewProgram(newModel(os.Args[1:], fd), tea.WithAltScreen())
+	if err := p.Start(); err != nil {
+		fmt.Fprintf(fd, "ERROR there's been an error: %v - shutting down", err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(fd, "INF closing")
 }

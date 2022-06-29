@@ -9,6 +9,8 @@ type FingerPrinter interface {
 	Add(path string, r io.Reader)
 }
 
+// TODO: as we build all the state while traversing, this should probably be only the stateless hashing
+
 // Print represents a file's path and content.
 // ignored: owner, group, mode, modTime, etc
 type Print struct {
@@ -21,7 +23,7 @@ type Sha256FingerPrinter struct {
 }
 
 // Add adds a fingerprint for the given file content
-func (p *Sha256FingerPrinter) Add(path string, r io.Reader) {
+func (p *Sha256FingerPrinter) Add(path string, r io.Reader) Print {
 	pr := Print{Path: path}
 
 	h := sha256.New()
@@ -31,4 +33,5 @@ func (p *Sha256FingerPrinter) Add(path string, r io.Reader) {
 	copy(pr.Hash[:], sum)
 
 	p.Prints = append(p.Prints, pr)
+	return pr
 }

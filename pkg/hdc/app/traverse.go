@@ -12,31 +12,42 @@ import (
 // traverse walks the filesystem rooted at dir, which is provided only for printing
 func traverse(f fs.FS, dir string, m *model) {
 	fs.WalkDir(f, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			fmt.Println("failed to walk", p, err, "..skipping")
+		fmt.Fprintln(m.log, "INF WALKING", p)
+		if p == "zipfiles" {
+			fmt.Fprintln(m.log, "INF SKIPPING more zipfiles UNTIL THE PROGRAM IS MORE READY")
 			return fs.SkipDir
 		}
-		absPath, err := filepath.Abs(p)
 		if err != nil {
-			fmt.Println("failed to get absolute path for", p, err, "..skipping")
+			fmt.Fprintln(m.log, "ERR failed to walk", p, err, "..skipping")
+			return fs.SkipDir
+		}
+
+		// filepath.Abs is a bit poorly named IMHO. what happens here is we give it an absolute path,
+		// and it returns the canonical path with things like ./ and /../ cleaned up
+		absPath := filepath.Join(dir, p)
+		canPath, err := filepath.Abs(absPath)
+		if err != nil {
+			fmt.Fprintln(m.log, "ERR failed to get canonical path for", p, err, "..skipping")
 			return fs.SkipDir
 		}
 		if filepath.Ext(p) == ".zip" {
-			fp, ok := m.objectData[absPath]
+			fp, ok := m.objectData[canPath]
 			if ok {
-				fmt.Printf("already have object for absolute Path %q (relative path %q), skipping for relative path %q which resolves to same absolute path\n", absPath, fp.RelPath, p)
+				fmt.Fprintf(m.log, "INF already have object for canonical Path %q (original path %q), skipping for path %q which resolves to same canonical path\n", canPath, fp.Path, p)
 				return nil
 			}
-			fmt.Println("ADDING!")
-			zip.FingerPrintFile(dir, p, &fp.fp)
-			m.objectData[absPath] = fp
-			m.objectList = append(m.objectList, absPath)
+			fp.Path = absPath
+			fmt.Fprintln(m.log, "INF STARTING ZIPFILE WALK FOR", p)
+			zip.FingerPrintFile(dir, p, &fp.fp, m.log)
+			fmt.Fprintln(m.log, "INF FINISHED ZIPFILE WALK FOR", p)
+			m.objectData[canPath] = fp
+			m.objectList = append(m.objectList, canPath)
 		}
 		return nil
 	})
 }
 
 type Object struct {
-	RelPath string
-	fp      hdc.Sha256FingerPrinter
+	Path string // the original, non-canonicalized absolute path.
+	fp   hdc.Sha256FingerPrinter
 }

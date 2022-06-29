@@ -2,22 +2,40 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render
+	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render
 )
 
 type model struct {
+	scanPaths  []string
 	objectData map[string]Object
 	objectList []string         // points to string within objectData
 	cursor     int              // points to index within objectList
 	selected   map[int]struct{} // points to index within objectList
+	log        io.Writer
 }
 
-func newModel() model {
+func (m *model) scan() {
+	// TODO support all paths
+	*m = newModel(m.scanPaths, m.log)
+	f := os.DirFS(m.scanPaths[0])
+	traverse(f, m.scanPaths[0], m)
+}
+
+func newModel(scanPaths []string, log io.Writer) model {
 	return model{
+		scanPaths:  scanPaths,
 		objectData: make(map[string]Object),
 		selected:   make(map[int]struct{}),
+		log:        log,
 	}
 }
 
@@ -26,36 +44,28 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	path := "/home/dieter/downloads"
-	f := os.DirFS(path)
-	traverse(f, path, &m)
-
 	switch msg := msg.(type) {
 
-	// Is it a key press?
 	case tea.KeyMsg:
 
-		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
-		// These keys should exit the program.
+		case "s":
+			m.scan()
+
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// The "up" and "k" keys move the cursor up
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
-		// The "down" and "j" keys move the cursor down
 		case "down", "j":
 			if m.cursor < len(m.objectList)-1 {
 				m.cursor++
 			}
 
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
 			_, ok := m.selected[m.cursor]
 			if ok {
@@ -74,7 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := "Processed objects:\n\n"
 
-	for i, absPath := range m.objectList {
+	for i, canPath := range m.objectList {
 
 		// Is the cursor pointing at this object?
 		cursor := " " // no cursor
@@ -89,13 +99,11 @@ func (m model) View() string {
 		}
 
 		// Render the row
-		obj := m.objectData[absPath]
-		s += fmt.Sprintf("%s [%s] %s - %s\n", cursor, checked, absPath, obj.RelPath)
+		obj := m.objectData[canPath]
+		s += fmt.Sprintf("%s [%s] %s - %s\n", cursor, checked, canPath, obj.Path)
 	}
 
-	// The footer
-	s += "\nPress q to quit.\n"
+	s += helpStyle("\n up/down/j/k : navigate - s: scan - q: quit\n")
 
-	// Send the UI for rendering
 	return s
 }

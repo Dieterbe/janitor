@@ -2,7 +2,6 @@ package hdc
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -29,7 +28,6 @@ func TestFingerprinter(t *testing.T) {
 	var foo, bar [32]byte
 	copy(foo[:], fooSlice)
 	copy(bar[:], barSlice)
-	fmt.Printf("foo %x\n", foo)
 
 	var fp Sha256FingerPrinter
 	fp.Add("foo", strings.NewReader("foo"))
