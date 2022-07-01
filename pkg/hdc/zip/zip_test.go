@@ -1,6 +1,7 @@
 package zip
 
 import (
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -44,7 +45,6 @@ var dataNestedMac = []hdc.Entry{
 }
 
 // filter returns a copy of the given slice with only the entries that do not contain the given substring
-// it also sorts the entries lexically by name to match the zip reader.
 func filter(entries []hdc.Entry, str string) []hdc.Entry {
 	var out []hdc.Entry
 	for _, e := range entries {
@@ -52,11 +52,19 @@ func filter(entries []hdc.Entry, str string) []hdc.Entry {
 			out = append(out, e)
 		}
 	}
+	return out
+}
+
+// sortCopy sorts the entries lexically by name to match the zip reader, returning a copy.
+// the input slice is not modified.
+func sortCopy(entries []hdc.Entry) []hdc.Entry {
+	out := make([]hdc.Entry, len(entries))
+	copy(out, entries)
+
 	// sort by name
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].Path < out[j].Path
 	})
-
 	return out
 }
 
@@ -68,17 +76,17 @@ func TestIdentify(t *testing.T) {
 		want []hdc.Entry
 		err  error
 	}{
-		{"basic", dataBasic, filter(dataBasic, "__MACOSX"), nil},
-		{"nested", dataNested, nil, errUnsupported},
-		{"mac", dataMac, filter(dataMac, "__MACOSX"), nil},
-		{"nestedMac", dataNestedMac, nil, errUnsupported},
+		{"basic", dataBasic, dataBasic, nil},
+		{"nested", dataNested, dataNested, nil},
+		{"mac", dataMac, dataMac, nil},
+		{"nestedMac", dataNestedMac, dataNestedMac, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			var mfp mock.MockFingerPrinter
 			_, zr := mkzip.Do(tt.data)
-			err := FingerPrint(zr, "in-memory-test-directory", "in-memory-test-file", &mfp)
+			err := FingerPrint(zr, "in-memory-test-directory-"+tt.name, "in-memory-test-file-"+tt.name, mfp.Add, os.Stderr)
 			if err != tt.err {
 				t.Errorf("FingerPrint() error = %v, wantErr %v", err, tt.err)
 			}
@@ -86,7 +94,9 @@ func TestIdentify(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(tt.want, mfp.Entries); diff != "" {
+			want := sortCopy(filter(tt.data, "__MACOSX"))
+
+			if diff := cmp.Diff(want, mfp.Entries); diff != "" {
 				t.Errorf("TestIdentify() mismatch (-want +got):\n%s", diff)
 			}
 		})

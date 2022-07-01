@@ -17,10 +17,14 @@ type MockFingerPrinter struct {
 	Entries []hdc.Entry
 }
 
-func (m *MockFingerPrinter) Add(path string, r io.Reader) {
+func (m *MockFingerPrinter) Add(path string, r io.Reader) hdc.FilePrint {
 	body, err := ioutil.ReadAll(r)
 	perr(err)
-	m.Entries = append(m.Entries, hdc.Entry{Path: path, Body: string(body)})
+	entry := hdc.Entry{Path: path, Body: string(body)}
+	m.Entries = append(m.Entries, entry)
+	return hdc.FilePrint{
+		Path: path,
+	}
 }
 
 func (m *MockFingerPrinter) Reset() {

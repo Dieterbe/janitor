@@ -51,10 +51,6 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 			return err
 		}
 
-		if d.Name() == "__MACOSX" {
-			fmt.Fprintln(log, "INF", logPrefix, "don't descend into this one, it's not real important data")
-			return fs.SkipDir
-		}
 		if err != nil {
 			fmt.Fprintln(log, "ERR", logPrefix, "error", err, "..skipping")
 			return err
@@ -63,6 +59,11 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 		if err != nil {
 			fmt.Fprintln(log, "err", logPrefix, "d.info() error:", err, "..skipping")
 			return err
+		}
+
+		if d.Name() == "__MACOSX" && info.IsDir() {
+			fmt.Fprintln(log, "INF", logPrefix, "don't descend into this one, it's not real important data")
+			return fs.SkipDir
 		}
 
 		if info.IsDir() {
@@ -74,7 +75,7 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 		} else {
 			fd, err := f.Open(p)
 			perr(err)
-			dirObjects[len(dirObjects)-1].Children = append(dirObjects[len(dirObjects)-1].Children, fp.Add(p, fd))
+			dirObjects[len(dirObjects)-1].Files = append(dirObjects[len(dirObjects)-1].Files, fp(p, fd))
 		}
 
 		return nil
@@ -86,13 +87,10 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 		if len(dirObjects) > 1 {
 			popped := dirObjects[len(dirObjects)-1]
 			dirObjects = dirObjects[:len(dirObjects)-1]
-			dirObjects[len(dirObjects)-1].Children = append(dirObjects[len(dirObjects)-1].Children, popped)
-			dirObjects = dirObjects[:len(dirObjects)-1]
+			dirObjects[len(dirObjects)-1].Dirs = append(dirObjects[len(dirObjects)-1].Dirs, popped)
 		}
 	}
 	err := fswalk.WalkDir(&f, ".", walkDirFn, doneDirFn)
-	//finishAssimilationsMaybe("", true)
-	// sum last dir
 	return err
 
 }
