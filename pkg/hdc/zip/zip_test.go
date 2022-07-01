@@ -12,6 +12,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+// TODO run same tests on "regular directory"? these are not specific to zip
+
 var dataBasic = []hdc.Entry{
 	{Path: "readme.txt", Body: "This archive contains some text files."},
 	{Path: "gopher.txt", Body: "Gopher names:\nGeorge\nGeoffrey\nGonzo"},
@@ -86,9 +88,9 @@ func TestIdentify(t *testing.T) {
 
 			var mfp mock.MockFingerPrinter
 			_, zr := mkzip.Do(tt.data)
-			err := FingerPrint(zr, "in-memory-test-directory-"+tt.name, "in-memory-test-file-"+tt.name, mfp.Add, os.Stderr)
+			err := WalkZip(zr, "in-memory-test-directory-"+tt.name, "in-memory-test-file-"+tt.name, mfp.Add, os.Stderr)
 			if err != tt.err {
-				t.Errorf("FingerPrint() error = %v, wantErr %v", err, tt.err)
+				t.Errorf("WalkZip() error = %v, wantErr %v", err, tt.err)
 			}
 			if err != nil {
 				return
@@ -97,7 +99,7 @@ func TestIdentify(t *testing.T) {
 			want := sortCopy(filter(tt.data, "__MACOSX"))
 
 			if diff := cmp.Diff(want, mfp.Entries); diff != "" {
-				t.Errorf("TestIdentify() mismatch (-want +got):\n%s", diff)
+				t.Errorf("WalkZip() mismatch (-want +got):\n%s", diff)
 			}
 		})
 

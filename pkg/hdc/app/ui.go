@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -15,27 +16,28 @@ var (
 )
 
 type model struct {
-	scanPaths  []string
-	objectData map[string]Object
-	objectList []string         // points to string within objectData
-	cursor     int              // points to index within objectList
-	selected   map[int]struct{} // points to index within objectList
-	log        io.Writer
+	scanPaths []string
+	// we'll probably want "just the root dirprints of the scanpaths" as well, i guess
+	allDirPrints map[string]hdc.DirPrint
+	allDirPaths  []string         // points to string within allDirs
+	cursor       int              // points to index within allDirPaths
+	selected     map[int]struct{} // points to index within allDirPaths
+	log          io.Writer
 }
 
 func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
 	f := os.DirFS(m.scanPaths[0])
-	traverse(f, m.scanPaths[0], m)
+	WalkFS(f, m.scanPaths[0], hdc.Sha256FingerPrint, m, m.log)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {
 	return model{
-		scanPaths:  scanPaths,
-		objectData: make(map[string]Object),
-		selected:   make(map[int]struct{}),
-		log:        log,
+		scanPaths:    scanPaths,
+		allDirPrints: make(map[string]hdc.DirPrint),
+		selected:     make(map[int]struct{}),
+		log:          log,
 	}
 }
 
@@ -62,7 +64,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "down", "j":
-			if m.cursor < len(m.objectList)-1 {
+			if m.cursor < len(m.allDirPaths)-1 {
 				m.cursor++
 			}
 
@@ -82,24 +84,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := "Processed objects:\n\n"
+	s := "Processed directories:\n\n"
 
-	for i, canPath := range m.objectList {
+	for i, canPath := range m.allDirPaths {
 
-		// Is the cursor pointing at this object?
+		// Is the cursor pointing at this DirPrint?
 		cursor := " " // no cursor
 		if m.cursor == i {
 			cursor = ">" // cursor!
 		}
 
-		// Is this object selected?
+		// Is this DirPrint selected?
 		checked := " " // not selected
 		if _, ok := m.selected[i]; ok {
 			checked = "x" // selected!
 		}
 
 		// Render the row
-		obj := m.objectData[canPath]
+		obj := m.allDirPrints[canPath]
 		s += fmt.Sprintf("%s [%s] %s - %s\n", cursor, checked, canPath, obj.Path)
 	}
 

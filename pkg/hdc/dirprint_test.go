@@ -7,7 +7,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// TODO unit test that given a fs.FS, this structure is created. maybe a test for traverse()
+// TODO unit test that given a fs.FS, this structure is created. maybe a test for walk()
+// note that the expected prints are ordered by their hash, which is different from the order of the DirPrint structure
 func TestDirPrint(t *testing.T) {
 
 	h1S, err := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")

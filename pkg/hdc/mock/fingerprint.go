@@ -13,6 +13,7 @@ func perr(err error) {
 	}
 }
 
+// MockFingerPrinter is a FingerPrinter that returns dummy fingerprints but tracks which files were added
 type MockFingerPrinter struct {
 	Entries []hdc.Entry
 }

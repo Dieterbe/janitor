@@ -69,7 +69,7 @@ func (fpi *FilePrintIterator) Value() (FilePrint, bool) {
 }
 
 // DirPrintIterator is an iterator over a DirPrint. It merges:
-// - an iterator for all its file objects
+// - an iterator for all its filePrints
 // - an iterator for each child directory
 type DirPrintIterator struct {
 	path  string

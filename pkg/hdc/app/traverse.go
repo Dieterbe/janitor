@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"path/filepath"
 
@@ -10,16 +11,18 @@ import (
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip"
 )
 
-// traverse walks the filesystem rooted at dir, which is provided only for printing
-func traverse(f fs.FS, dir string, m *model) {
+// WalkFS walks the filesystem rooted at dir and generates the Prints for all folders, files and zip files encountered
+// so the main question is.. sholud we return 1 dirprint here for the root (which embeds all others)
+// or add all dirprints to a provided structure so that the UI is happy
+func WalkFS(f fs.FS, dir string, fpr hdc.FingerPrinter, m *model, log io.Writer) (hdc.DirPrint, error) {
+	logPrefix := "WalkFS : " + dir
+	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
+	var dirPrints []hdc.DirPrint
+
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
-		fmt.Fprintln(m.log, "INF WALKING", p)
-		if p == "zipfiles" {
-			fmt.Fprintln(m.log, "INF SKIPPING more zipfiles UNTIL THE PROGRAM IS MORE READY")
-			return fs.SkipDir
-		}
+		logPrefix := logPrefix + ": WalkDir " + p
 		if err != nil {
-			fmt.Fprintln(m.log, "ERR failed to walk", p, err, "..skipping")
+			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..skipping")
 			return fs.SkipDir
 		}
 
@@ -28,34 +31,71 @@ func traverse(f fs.FS, dir string, m *model) {
 		absPath := filepath.Join(dir, p)
 		canPath, err := filepath.Abs(absPath)
 		if err != nil {
-			fmt.Fprintln(m.log, "ERR failed to get canonical path for", p, err, "..skipping")
+			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..skipping")
 			return fs.SkipDir
 		}
-		if filepath.Ext(p) == ".zip" {
-			fp, ok := m.objectData[canPath]
-			if ok {
-				fmt.Fprintf(m.log, "INF already have object for canonical Path %q (original path %q), skipping for path %q which resolves to same canonical path\n", canPath, fp.Path, p)
-				return nil
-			}
-			fp.Path = absPath
-			fmt.Fprintln(m.log, "INF STARTING ZIPFILE WALK FOR", p)
-			zip.FingerPrintFile(dir, p, &fp.fp, m.log)
-			fmt.Fprintln(m.log, "INF FINISHED ZIPFILE WALK FOR", p)
-			m.objectData[canPath] = fp
-			m.objectList = append(m.objectList, canPath)
+
+		logPrefix = "WalkFS : WalkDir " + canPath
+
+		info, err := d.Info()
+		if err != nil {
+			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..skipping")
+			return fs.SkipDir
 		}
+
+		if d.Name() == "__MACOSX" && info.IsDir() {
+			fmt.Fprintln(log, "INF", logPrefix, "don't descend into this one, it's not real important data")
+			return fs.SkipDir
+		}
+
+		if info.IsDir() {
+			// entering a new directory. start our DirPrint to capture FilePrint's in this directory
+			dirPrints = append(dirPrints, hdc.DirPrint{
+				Path: p,
+			})
+			fmt.Fprintln(log, "INF", logPrefix, "PUSH: this is our current directory to add FilePrints into")
+		} else {
+			if filepath.Ext(p) == ".zip" {
+				fp, ok := m.allDirPrints[canPath]
+				if ok {
+					fmt.Fprintf(log, "INF %s fingerprint for this zip already exists. (original path %q, this path %q). skipping", logPrefix, fp.Path, p)
+					return nil
+				}
+				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as an zip directory...")
+				fp.Path = absPath
+				zip.WalkZipFile(dir, p, fpr, log)
+				m.allDirPrints[canPath] = fp
+				m.allDirPaths = append(m.allDirPaths, canPath)
+			} else {
+				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as standalone file...")
+				fd, err := f.Open(p)
+				perr(err)
+				dirPrints[len(dirPrints)-1].Files = append(dirPrints[len(dirPrints)-1].Files, fpr(p, fd))
+			}
+		}
+
 		return nil
+
 	}
 	doneDirFn := func(p string, d fs.DirEntry) {
-		fmt.Fprintln(m.log, "INF DONE WALKING DIR", p, d.Name())
+		logPrefix := logPrefix + ": DoneDir " + p
+		// we are done with a directory, add it to its parent
+		// unless this was the root directory, which has no parent and will be the ultimate DirPrint to return below
+		if len(dirPrints) > 1 {
+			fmt.Fprintln(log, "INF", logPrefix, "POP: adding this dir to its parent")
+			popped := dirPrints[len(dirPrints)-1]
+			dirPrints = dirPrints[:len(dirPrints)-1]
+			dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, popped)
+			return
+		}
+		fmt.Fprintln(log, "INF", logPrefix, "POP: this dir is the root and is complete")
 	}
 	err := fswalk.WalkDir(f, ".", walkDirFn, doneDirFn)
 	if err != nil {
-		fmt.Fprintln(m.log, "ERR failed to walk", dir, err)
+		return hdc.DirPrint{}, err
 	}
-}
-
-type Object struct {
-	Path string // the original, non-canonicalized absolute path.
-	fp   hdc.Sha256FingerPrinter
+	if len(dirPrints) != 1 {
+		panic(fmt.Sprintf("unexpected number of dirPrints %d: %v", len(dirPrints), dirPrints))
+	}
+	return dirPrints[0], err
 }

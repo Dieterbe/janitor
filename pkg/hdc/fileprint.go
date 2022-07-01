@@ -5,6 +5,13 @@ import (
 	"io"
 )
 
+// Print represents a file's path and content.
+// ignored: owner, group, mode, modTime, etc
+type FilePrint struct {
+	Path string
+	Hash [32]byte
+}
+
 type FingerPrinter func(path string, r io.Reader) FilePrint
 
 // Sha256FingerPrint computes the sha256 based fingerprint for the given file content
@@ -18,11 +25,4 @@ func Sha256FingerPrint(path string, r io.Reader) FilePrint {
 	copy(pr.Hash[:], sum)
 
 	return pr
-}
-
-// Print represents a file's path and content.
-// ignored: owner, group, mode, modTime, etc
-type FilePrint struct {
-	Path string
-	Hash [32]byte
 }

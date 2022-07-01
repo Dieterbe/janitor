@@ -14,7 +14,7 @@ import (
 
 var errUnsupported = errors.New("unsupported feature")
 
-func FingerPrintFile(dir, base string, fp hdc.FingerPrinter, log io.Writer) {
+func WalkZipFile(dir, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, error) {
 
 	path := filepath.Join(dir, base)
 
@@ -28,13 +28,13 @@ func FingerPrintFile(dir, base string, fp hdc.FingerPrinter, log io.Writer) {
 	var _ zip.ReadCloser = *zipfs
 	var _ zip.Reader = zipfs.Reader
 
-	FingerPrint(zipfs.Reader, dir, base, fp, log)
+	return WalkZip(zipfs.Reader, dir, base, fpr, log)
 }
 
-func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, log io.Writer) error {
-	logPrefix := "unzip: " + filepath.Join(dir, base)
+func WalkZip(f zip.Reader, dir string, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, error) {
+	logPrefix := "WalkZIP: " + filepath.Join(dir, base)
 	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
-	var dirObjects []hdc.DirPrint
+	var dirPrints []hdc.DirPrint
 
 	// Note that WalkDir first processes a directory, then its children
 	// For an example of a walking order, please see the README.md
@@ -44,20 +44,15 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 	// (only in memory to get the hashes)
 	// That said, we may want to add zip slip protection here. see https://gosamples.dev/unzip-file/
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
-		fmt.Fprintln(log, "DIE", logPrefix, "Walking fname within zip", p)
 		logPrefix := logPrefix + ": WalkDir " + p
 		if err != nil {
 			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..aborting")
 			return err
 		}
 
-		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "error", err, "..skipping")
-			return err
-		}
 		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintln(log, "err", logPrefix, "d.info() error:", err, "..skipping")
+			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..aborting")
 			return err
 		}
 
@@ -66,31 +61,43 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 			return fs.SkipDir
 		}
 
+		base := filepath.Base(p)
+
 		if info.IsDir() {
-			// entering a new directory. start our dirObject to capture file objects in this directory
-			dirObjects = append(dirObjects, hdc.DirPrint{
-				Path: p,
+			// entering a new directory. start our DirPrint to capture FilePrint's in this directory
+			dirPrints = append(dirPrints, hdc.DirPrint{
+				Path: base,
 			})
-			fmt.Fprintln(log, "INF", logPrefix, "PUSH adding dirobject with path", p)
+			fmt.Fprintln(log, "INF", logPrefix, "PUSH: this is our current directory to add FilePrints into")
 		} else {
+			fmt.Fprintln(log, "INF", logPrefix, "fingerprinting...")
 			fd, err := f.Open(p)
 			perr(err)
-			dirObjects[len(dirObjects)-1].Files = append(dirObjects[len(dirObjects)-1].Files, fp(p, fd))
+			dirPrints[len(dirPrints)-1].Files = append(dirPrints[len(dirPrints)-1].Files, fpr(base, fd))
 		}
 
 		return nil
 	}
 	doneDirFn := func(p string, d fs.DirEntry) {
-		fmt.Fprintln(log, "DIE", "POP done walking directory", p)
+		logPrefix := logPrefix + ": DoneDir " + p
 		// we are done with a directory, add it to its parent
-		// unless this was the root directory, which has no parent and will be the ultimate object to return below
-		if len(dirObjects) > 1 {
-			popped := dirObjects[len(dirObjects)-1]
-			dirObjects = dirObjects[:len(dirObjects)-1]
-			dirObjects[len(dirObjects)-1].Dirs = append(dirObjects[len(dirObjects)-1].Dirs, popped)
+		// unless this was the root directory, which has no parent and will be the ultimate DirPrint to return below
+		if len(dirPrints) > 1 {
+			fmt.Fprintln(log, "INF", logPrefix, "POP: adding this dir to its parent")
+			popped := dirPrints[len(dirPrints)-1]
+			dirPrints = dirPrints[:len(dirPrints)-1]
+			dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, popped)
+			return
 		}
+		fmt.Fprintln(log, "INF", logPrefix, "POP: this dir is the root and is complete")
 	}
 	err := fswalk.WalkDir(&f, ".", walkDirFn, doneDirFn)
-	return err
+	if err != nil {
+		return hdc.DirPrint{}, err
+	}
+	if len(dirPrints) != 1 {
+		panic(fmt.Sprintf("unexpected number of dirPrints %d: %v", len(dirPrints), dirPrints))
+	}
+	return dirPrints[0], err
 
 }
