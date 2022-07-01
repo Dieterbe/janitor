@@ -7,8 +7,8 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
-	"strings"
 
+	"github.com/Dieterbe/sandbox/homedirclean/pkg/fswalk"
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
 )
 
@@ -34,12 +34,8 @@ func FingerPrintFile(dir, base string, fp hdc.FingerPrinter, log io.Writer) {
 func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, log io.Writer) error {
 	logPrefix := "unzip: " + filepath.Join(dir, base)
 	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
+	var dirObjects []hdc.DirPrint
 
-	type assimilation struct {
-		dir string
-	}
-	var assimilations []assimilation
-	var objects []hdc.Print
 	// Note that WalkDir first processes a directory, then its children
 	// For an example of a walking order, please see the README.md
 
@@ -47,16 +43,14 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 	// Note: it is assumed zip files on the system are trusted. Either way we won't actually extract them onto the system
 	// (only in memory to get the hashes)
 	// That said, we may want to add zip slip protection here. see https://gosamples.dev/unzip-file/
-	err := fs.WalkDir(&f, ".", func(p string, d fs.DirEntry, err error) error {
+	walkDirFn := func(p string, d fs.DirEntry, err error) error {
 		fmt.Fprintln(log, "DIE", logPrefix, "Walking fname within zip", p)
 		logPrefix := logPrefix + ": WalkDir " + p
 		if err != nil {
 			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..aborting")
 			return err
 		}
-		if d.Name() == "." {
-			return nil
-		}
+
 		if d.Name() == "__MACOSX" {
 			fmt.Fprintln(log, "INF", logPrefix, "don't descend into this one, it's not real important data")
 			return fs.SkipDir
@@ -71,34 +65,33 @@ func FingerPrint(f zip.Reader, dir string, base string, fp hdc.FingerPrinter, lo
 			return err
 		}
 
-		// if inDir != "" && inDir != dirname {
-		// 	// we finished traversing all the children of the last directory we walked. we must assimilate.
-		// 	inDir = ""
-		// }
 		if info.IsDir() {
-			// entering a new directory. wrap up any previous assimilation(s) as needed, and start a new one.
-
-			// 1) unwind the stack of assimilations to finish off the previous ones, they have a dirName that is not a prefix our current path.
-			for i := len(assimilations) - 1; i >= 0; i-- {
-				if !strings.HasPrefix(p, assimilations[i].dir) {
-					fmt.Fprintln(log, "INF", logPrefix, "unwinding assimilation", assimilations[i].dir)
-					assimilations = assimilations[:i]
-				}
-			}
-
-			// 2) create our new assimilation
-
-			assimilations = append(assimilations, assimilation{dir: p})
+			// entering a new directory. start our dirObject to capture file objects in this directory
+			dirObjects = append(dirObjects, hdc.DirPrint{
+				Path: p,
+			})
+			fmt.Fprintln(log, "INF", logPrefix, "PUSH adding dirobject with path", p)
 		} else {
-			dirname := filepath.Dir(p)
-			// if this file is not contained within the dir, we need to assimilate the dir first
 			fd, err := f.Open(p)
 			perr(err)
-			objects = append(objects, fp.Add(p, fd))
+			dirObjects[len(dirObjects)-1].Children = append(dirObjects[len(dirObjects)-1].Children, fp.Add(p, fd))
 		}
 
 		return nil
-	})
+	}
+	doneDirFn := func(p string, d fs.DirEntry) {
+		fmt.Fprintln(log, "DIE", "POP done walking directory", p)
+		// we are done with a directory, add it to its parent
+		// unless this was the root directory, which has no parent and will be the ultimate object to return below
+		if len(dirObjects) > 1 {
+			popped := dirObjects[len(dirObjects)-1]
+			dirObjects = dirObjects[:len(dirObjects)-1]
+			dirObjects[len(dirObjects)-1].Children = append(dirObjects[len(dirObjects)-1].Children, popped)
+			dirObjects = dirObjects[:len(dirObjects)-1]
+		}
+	}
+	err := fswalk.WalkDir(&f, ".", walkDirFn, doneDirFn)
+	//finishAssimilationsMaybe("", true)
 	// sum last dir
 	return err
 

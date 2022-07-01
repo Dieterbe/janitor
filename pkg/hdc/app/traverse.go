@@ -5,13 +5,14 @@ import (
 	"io/fs"
 	"path/filepath"
 
+	"github.com/Dieterbe/sandbox/homedirclean/pkg/fswalk"
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip"
 )
 
 // traverse walks the filesystem rooted at dir, which is provided only for printing
 func traverse(f fs.FS, dir string, m *model) {
-	fs.WalkDir(f, ".", func(p string, d fs.DirEntry, err error) error {
+	walkDirFn := func(p string, d fs.DirEntry, err error) error {
 		fmt.Fprintln(m.log, "INF WALKING", p)
 		if p == "zipfiles" {
 			fmt.Fprintln(m.log, "INF SKIPPING more zipfiles UNTIL THE PROGRAM IS MORE READY")
@@ -44,7 +45,14 @@ func traverse(f fs.FS, dir string, m *model) {
 			m.objectList = append(m.objectList, canPath)
 		}
 		return nil
-	})
+	}
+	doneDirFn := func(p string, d fs.DirEntry) {
+		fmt.Fprintln(m.log, "INF DONE WALKING DIR", p, d.Name())
+	}
+	err := fswalk.WalkDir(f, ".", walkDirFn, doneDirFn)
+	if err != nil {
+		fmt.Fprintln(m.log, "ERR failed to walk", dir, err)
+	}
 }
 
 type Object struct {

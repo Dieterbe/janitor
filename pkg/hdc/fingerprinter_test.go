@@ -33,7 +33,7 @@ func TestFingerprinter(t *testing.T) {
 	fp.Add("foo", strings.NewReader("foo"))
 
 	exp := Sha256FingerPrinter{
-		Prints: []Print{
+		Prints: []FilePrint{
 			{
 				Path: "foo",
 				Hash: foo,
@@ -46,7 +46,7 @@ func TestFingerprinter(t *testing.T) {
 	}
 
 	fp.Add("bar", strings.NewReader("bar"))
-	exp.Prints = append(exp.Prints, Print{Path: "bar", Hash: bar})
+	exp.Prints = append(exp.Prints, FilePrint{Path: "bar", Hash: bar})
 
 	if diff := cmp.Diff(exp, fp); diff != "" {
 		t.Errorf("Fingerprint mismatch after adding bar (-want +got):\n%s", diff)
