@@ -8,63 +8,22 @@ import (
 )
 
 // TODO unit test that given a fs.FS, this structure is created. maybe a test for walk()
-// note that the expected prints are ordered by their hash, which is different from the order of the DirPrint structure
 func TestDirPrintIterate(t *testing.T) {
-
 	var got []FilePrint
-	dpi := dpToIterate.Iterator()
+	dpi := DataMain2Print.Iterator()
 	for dpi.Next() {
 		v, _ := dpi.Value()
 		got = append(got, v)
 	}
 
-	if diff := cmp.Diff(dpIterated, got); diff != "" {
+	if diff := cmp.Diff(DataMain2Iterated, got); diff != "" {
 		t.Errorf("DirPrint iteration mismatch (-want +got):\n%s", diff)
 	}
 }
 
 func TestSimilarity(t *testing.T) {
-	var otherDPIterated = []FilePrint{
-		// in dpIterated but not here
-		//{
-		//	Path: "root/z",
-		//	Hash: h1,
-		//	Size: 100,
-		//},
-		// identical
-		{
-			Path: "root/a",
-			Hash: h2,
-			Size: 122,
-		},
-		// identical
-		{
-			Path: "root/b/2",
-			Hash: h3,
-			Size: 333,
-		},
-		// hash mismatch. note that this file contributes two times to the bytes differing, due to it existing with 2 different hashes.
-		// whether this is correct behavior, is debatable. but anyway at least it's simple code.
-		{
-			Path: "root/b/1",
-			Hash: h6, // need a hash here that sorts after h3
-			Size: 444,
-		},
-		// file that we have, but dpIterated doesn't.
-		{
-			Path: "root/b/4",
-			Hash: h7, // needs to sort after the hash above, but before h5
-			Size: 7777,
-		},
-		// identical file to dpIterated but different path
-		{
-			Path: "root/3.copy", // similarity is 0.45
-			Hash: h5,
-			Size: 555,
-		},
-	}
-	a := newFilePrintIterator(dpIterated)
-	b := newFilePrintIterator(otherDPIterated)
+	a := newFilePrintIterator(DataMain2Iterated)
+	b := newFilePrintIterator(DataMain3Iterated)
 	got := NewSimilarity(a, b)
 	exp := Similarity{
 		BytesDiff: 100 + 2*444 + 7777,
