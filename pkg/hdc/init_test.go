@@ -1,16 +1,15 @@
 package hdc
 
-import (
-	"encoding/hex"
-	"testing"
+import "encoding/hex"
 
-	"github.com/google/go-cmp/cmp"
-)
+// some "random" hashes for use in testing
+var h1, h2, h3, h4, h5, h6, h7 [32]byte
+var dpToIterate DirPrint
+var dpIterated []FilePrint
 
-// TODO unit test that given a fs.FS, this structure is created. maybe a test for walk()
-// note that the expected prints are ordered by their hash, which is different from the order of the DirPrint structure
-func TestDirPrint(t *testing.T) {
-
+func init() {
+	var err error
+	// 1-5 are in order for one test
 	h1S, err := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
 	perr(err)
 	h2S, err := hex.DecodeString("2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae")
@@ -22,23 +21,32 @@ func TestDirPrint(t *testing.T) {
 	h5S, err := hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 	perr(err)
 
-	var h1, h2, h3, h4, h5 [32]byte
+	// 6,7 are alternative hashes that sort between h3 and h5, for another test
+	h6S, err := hex.DecodeString("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	perr(err)
+	h7S, err := hex.DecodeString("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+	perr(err)
+
 	copy(h1[:], h1S)
 	copy(h2[:], h2S)
 	copy(h3[:], h3S)
 	copy(h4[:], h4S)
 	copy(h5[:], h5S)
+	copy(h6[:], h6S)
+	copy(h7[:], h7S)
 
-	dp := DirPrint{
+	dpToIterate = DirPrint{
 		Path: "root",
 		Files: []FilePrint{
 			{
 				Path: "a",
+				Size: 122,
 				Hash: h2,
 			},
 			{
 				Path: "z",
 				Hash: h1,
+				Size: 100,
 			},
 		},
 		Dirs: []DirPrint{
@@ -48,14 +56,17 @@ func TestDirPrint(t *testing.T) {
 					{
 						Path: "1",
 						Hash: h4,
+						Size: 444,
 					},
 					{
 						Path: "2",
 						Hash: h3,
+						Size: 333,
 					},
 					{
 						Path: "3",
 						Hash: h5,
+						Size: 555,
 					},
 				},
 				Dirs: nil,
@@ -63,38 +74,31 @@ func TestDirPrint(t *testing.T) {
 		},
 	}
 
-	var got []FilePrint
-	dpi := dp.Iterator()
-	for dpi.Next() {
-		v, _ := dpi.Value()
-		got = append(got, v)
-	}
-
-	exp := []FilePrint{
+	dpIterated = []FilePrint{
 		{
 			Path: "root/z",
 			Hash: h1,
+			Size: 100,
 		},
 		{
 			Path: "root/a",
 			Hash: h2,
+			Size: 122,
 		},
 		{
 			Path: "root/b/2",
 			Hash: h3,
+			Size: 333,
 		},
 		{
 			Path: "root/b/1",
 			Hash: h4,
+			Size: 444,
 		},
 		{
 			Path: "root/b/3",
 			Hash: h5,
+			Size: 555,
 		},
 	}
-
-	if diff := cmp.Diff(exp, got); diff != "" {
-		t.Errorf("DirPrint iteration mismatch (-want +got):\n%s", diff)
-	}
-
 }

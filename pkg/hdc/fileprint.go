@@ -5,10 +5,11 @@ import (
 	"io"
 )
 
-// Print represents a file's path and content.
+// Print represents a file's path, size and content.
 // ignored: owner, group, mode, modTime, etc
 type FilePrint struct {
 	Path string
+	Size int64
 	Hash [32]byte
 }
 
@@ -19,7 +20,8 @@ func Sha256FingerPrint(path string, r io.Reader) FilePrint {
 	pr := FilePrint{Path: path}
 
 	h := sha256.New()
-	_, err := io.Copy(h, r)
+	var err error
+	pr.Size, err = io.Copy(h, r)
 	perr(err)
 	sum := h.Sum(nil)
 	copy(pr.Hash[:], sum)

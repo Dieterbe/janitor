@@ -12,7 +12,7 @@ type DirPrint struct {
 	Dirs  []DirPrint
 }
 
-func (dp DirPrint) Iterator() *DirPrintIterator {
+func (dp DirPrint) Iterator() Iterator {
 
 	// initialize all iterators and load up their first values (if any)
 	var dpi DirPrintIterator
@@ -41,7 +41,7 @@ type FilePrintIterator struct {
 	idx   int
 }
 
-func newFilePrintIterator(files []FilePrint) *FilePrintIterator {
+func newFilePrintIterator(files []FilePrint) Iterator {
 
 	// sort all FilePrints by Hash. Note that this will change sorting of the original array
 	sort.Slice(files, func(i, j int) bool {

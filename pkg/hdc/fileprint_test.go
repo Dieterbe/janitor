@@ -21,6 +21,7 @@ func TestSha256FingerPrint(t *testing.T) {
 
 	exp := FilePrint{
 		Path: "foo",
+		Size: 3,
 	}
 	copy(exp.Hash[:], fooSlice)
 
@@ -32,6 +33,7 @@ func TestSha256FingerPrint(t *testing.T) {
 
 	exp = FilePrint{
 		Path: "bar",
+		Size: 3,
 	}
 	copy(exp.Hash[:], barSlice)
 	got = Sha256FingerPrint("bar", strings.NewReader("bar"))
