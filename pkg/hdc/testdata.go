@@ -13,12 +13,13 @@ package hdc
 
 import (
 	"encoding/hex"
+	"testing/fstest"
 )
 
 // various useful hashes for testing purposes.
 var FooHash, BarHash, FooBarHash [32]byte
 var h1, h2, h3, h4, h5, h6, h7 [32]byte
-var DataMain []Entry
+var DataMain fstest.MapFS
 var DataMainPrint, DataMain2Print DirPrint
 var DataMainIterated, DataMain2Iterated, DataMain3Iterated []FilePrint
 
@@ -82,26 +83,24 @@ func init() {
 
 	// Data structures used as inputs/outputs of tests.
 
-	// note we also try various orderings between files and their corresponding macosx entries
-	// this is to see if the generated zip is in anyway special and might break some of our code.
-	// Iteration via fs.Walk - which is what we do - will always use lexical ordering anyway, so
-	// this might be pointless.
+	// Note that iteration via fs.Walk always uses lexical ordering, so we don't need to worry about
+	// ordering here.
 	// we deliberately also have a few files with same content (and thus same hash).
-	DataMain = []Entry{
-		{Path: "foo/bar/__MACOSX/somefile", Body: "ignore this entry"},
-		{Path: "foo/bar/__MACOSX/another", Body: "ignore this entry"},
-		{Path: "__MACOSX/somefile", Body: "ignore this entry"},
-		{Path: "somefile", Body: "foo"},
-		{Path: "foo/__MACOSX/somefile", Body: "ignore this entry"},
-		{Path: "foo/somefile", Body: "foo"},
-		{Path: "bar/somefile", Body: "foo"},
-		{Path: "bar/__MACOSX/somefile", Body: "ignore this entry"},
-		{Path: "foo/bar/somefile", Body: "bar"},
-		{Path: "foo/bar/foobar.png.txt", Body: "foobar"},
+	DataMain = fstest.MapFS{
+		"bar/__MACOSX/somefile":     {Data: []byte("ignore this entry")},
+		"bar/somefile":              {Data: []byte("foo")},
+		"foo/bar/foobar.png.txt":    {Data: []byte("foobar")},
+		"foo/bar/__MACOSX/another":  {Data: []byte("ignore this entry as well")},
+		"foo/bar/__MACOSX/somefile": {},
+		"foo/bar/somefile":          {Data: []byte("bar")},
+		"foo/__MACOSX/somefile":     {},
+		"foo/somefile":              {Data: []byte("foo")},
+		"__MACOSX/somefile":         {},
+		"somefile":                  {Data: []byte("foo")},
 	}
 
 	DataMainPrint = DirPrint{
-		Path: ".",
+		Path: "main.zip",
 		Files: []FilePrint{
 			{
 				Path: "somefile",

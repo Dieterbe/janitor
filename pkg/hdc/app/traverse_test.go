@@ -3,20 +3,20 @@ package app
 import (
 	"os"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/mkzip"
 	"github.com/google/go-cmp/cmp"
 )
 
 // TODO run same tests on "regular directory"? these are not specific to zip
 // TODO do we have a test anywhere that also checks for adding the "intermediate" dirprints?
 // similar test that has a full path AND a zip file?
-func TestWalkZip(t *testing.T) {
+func TestTraverse(t *testing.T) {
 
 	var tests = []struct {
 		name string
-		data []hdc.Entry
+		data fstest.MapFS
 		want hdc.DirPrint
 		err  error
 	}{
@@ -25,8 +25,7 @@ func TestWalkZip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, zr := mkzip.Do(tt.data)
-			dirPrint, err := WalkZip(zr, "test/in-memory/"+tt.name+".zip", hdc.Sha256FingerPrint, os.Stderr)
+			dirPrint, _, err := WalkZip(tt.data, "test/in-memory/"+tt.name+".zip", hdc.Sha256FingerPrint, os.Stderr)
 			if err != tt.err {
 				t.Errorf("WalkZip() error = %v, wantErr %v", err, tt.err)
 			}
