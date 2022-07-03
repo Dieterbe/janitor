@@ -2,6 +2,7 @@ package hdc
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"sort"
 )
@@ -10,6 +11,24 @@ type DirPrint struct {
 	Path  string
 	Files []FilePrint
 	Dirs  []DirPrint
+}
+
+func (dp DirPrint) String() string {
+	return dp.string("")
+}
+func (dp DirPrint) string(indent string) string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%sDirPrint path: %q\n", indent, dp.Path)
+	fmt.Fprintf(&buf, "%s  Files:\n", indent)
+	for _, f := range dp.Files {
+		buf.WriteString(indent + "     " + f.String() + "\n")
+	}
+	fmt.Fprintf(&buf, "%s  Dirs:\n", indent)
+	for _, d := range dp.Dirs {
+		indent += "    "
+		buf.WriteString(d.string(indent) + "\n")
+	}
+	return buf.String()
 }
 
 func (dp DirPrint) Iterator() Iterator {

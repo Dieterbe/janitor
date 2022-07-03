@@ -28,11 +28,11 @@ func WalkZipFile(dir, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.Di
 	var _ zip.ReadCloser = *zipfs
 	var _ zip.Reader = zipfs.Reader
 
-	return WalkZip(zipfs.Reader, dir, base, fpr, log)
+	return WalkZip(zipfs.Reader, path, fpr, log)
 }
 
-func WalkZip(f zip.Reader, dir string, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, error) {
-	logPrefix := "WalkZIP: " + filepath.Join(dir, base)
+func WalkZip(f zip.Reader, path string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, error) {
+	logPrefix := "WalkZIP: " + path
 	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
 	var dirPrints []hdc.DirPrint
 
@@ -78,7 +78,7 @@ func WalkZip(f zip.Reader, dir string, base string, fpr hdc.FingerPrinter, log i
 
 		return nil
 	}
-	doneDirFn := func(p string, d fs.DirEntry) {
+	doneDirFn := func(p string, d fs.DirEntry) error {
 		logPrefix := logPrefix + ": DoneDir " + p
 		// we are done with a directory, add it to its parent
 		// unless this was the root directory, which has no parent and will be the ultimate DirPrint to return below
@@ -87,9 +87,10 @@ func WalkZip(f zip.Reader, dir string, base string, fpr hdc.FingerPrinter, log i
 			popped := dirPrints[len(dirPrints)-1]
 			dirPrints = dirPrints[:len(dirPrints)-1]
 			dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, popped)
-			return
+			return nil
 		}
 		fmt.Fprintln(log, "INF", logPrefix, "POP: this dir is the root and is complete")
+		return nil
 	}
 	err := fswalk.WalkDir(&f, ".", walkDirFn, doneDirFn)
 	if err != nil {

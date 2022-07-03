@@ -8,6 +8,7 @@ import (
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (
@@ -16,20 +17,30 @@ var (
 )
 
 type model struct {
-	scanPaths []string
-	// we'll probably want "just the root dirprints of the scanpaths" as well, i guess
-	allDirPrints map[string]hdc.DirPrint
-	allDirPaths  []string         // points to string within allDirs
-	cursor       int              // points to index within allDirPaths
-	selected     map[int]struct{} // points to index within allDirPaths
-	log          io.Writer
+	scanPaths     []string
+	rootDirPrints []hdc.DirPrint // corresponding to each scanpath. Not sure yet if we'll need this
+	allDirPrints  map[string]hdc.DirPrint
+	allDirPaths   []string         // points to string within allDirs. NOT REALLY USED YET
+	cursor        int              // points to index within allDirPaths
+	selected      map[int]struct{} // points to index within allDirPaths
+	log           io.Writer
 }
 
 func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
 	f := os.DirFS(m.scanPaths[0])
-	WalkFS(f, m.scanPaths[0], hdc.Sha256FingerPrint, m, m.log)
+	root, all, err := WalkFS(f, m.scanPaths[0], hdc.Sha256FingerPrint, m.log)
+	perr(err)
+	m.rootDirPrints = []hdc.DirPrint{root}
+	m.allDirPrints = all
+	fmt.Fprintln(m.log, "Root:")
+	spew.Config.Indent = "  "
+	spew.Fdump(m.log, root)
+	// fmt.Fprintln(m.log, "Root with fmt:")
+	// fmt.Fprintln(m.log, root)
+	fmt.Fprintln(m.log, "All:")
+	spew.Fdump(m.log, all)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {

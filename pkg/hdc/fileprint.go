@@ -2,6 +2,7 @@ package hdc
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 )
 
@@ -11,6 +12,10 @@ type FilePrint struct {
 	Path string
 	Size int64
 	Hash [32]byte
+}
+
+func (fp FilePrint) String() string {
+	return fmt.Sprintf("FilePrint %10d %x %s", fp.Size, fp.Hash, fp.Path)
 }
 
 type FingerPrinter func(path string, r io.Reader) FilePrint

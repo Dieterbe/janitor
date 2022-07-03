@@ -10,6 +10,7 @@ import (
 )
 
 // TODO run same tests on "regular directory"? these are not specific to zip
+// TODO do we have a test anywhere that also checks for adding the "intermediate" dirprints?
 // similar test that has a full path AND a zip file?
 func TestWalkZip(t *testing.T) {
 
