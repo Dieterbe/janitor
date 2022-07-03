@@ -1,6 +1,7 @@
 package app
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"io/fs"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/fswalk"
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc/zip"
 )
 
 func canonicalPath(dir, p string) (string, error) {
@@ -23,33 +23,67 @@ func canonicalPath(dir, p string) (string, error) {
 	return filepath.Abs(absPath)
 }
 
-// WalkFS walks the filesystem rooted at dir and generates the Prints for all folders, files and zip files encountered
+func walkZipFile(dir, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+
+	path := filepath.Join(dir, base)
+
+	zipfs, err := zip.OpenReader(path)
+
+	perr(err)
+	defer zipfs.Close()
+
+	// FYI. zipfs implements these types
+	var _ fs.FS = zipfs
+	var _ zip.ReadCloser = *zipfs
+	var _ zip.Reader = zipfs.Reader
+
+	return WalkZip(zipfs, path, fpr, log)
+}
+
+func WalkZip(f fs.FS, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+	return Walk(f, "WalkZIP: ", walkPath, fpr, log)
+}
+
+func WalkFS(f fs.FS, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+	return Walk(f, "WalkFS : ", walkPath, fpr, log)
+}
+
+// WalkFS walks the filesystem rooted at walkPath (could be a directory or a zip file)
+// and generates the Prints for all folders, files and zip files encountered
 // it returns the root DirPrint as all individual dirprints by path
-func WalkFS(f fs.FS, dir string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
-	logPrefix := "WalkFS : " + dir
+func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+	logPrefix := prefix + walkPath
 	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
 	var dirPrints []hdc.DirPrint                  // stack of dirprints in progress during walking
 	allDirPrints := make(map[string]hdc.DirPrint) // all dirprints encountered.
 
+	// Note that WalkDir first processes a directory, then its children
+	// For an example of a walking order, please see the README.md
+
+	// p is the filename within the zip file, and d is the corresponding dirEntry
+	// Note: it is assumed zip files on the system are trusted. Either way we won't actually extract them onto the system
+	// (only in memory to get the hashes)
+	// That said, we may want to add zip slip protection here. see https://gosamples.dev/unzip-file/
+
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
 		logPrefix := logPrefix + ": WalkDir " + p
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..skipping")
+			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..skipping") // zip aborting
 			return fs.SkipDir
 		}
 
-		canPath, err := canonicalPath(dir, p)
+		canPath, err := canonicalPath(walkPath, p)
 
 		if err != nil {
 			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..skipping")
 			return fs.SkipDir
 		}
 
-		logPrefix = "WalkFS : WalkDir " + canPath
+		logPrefix = prefix + ": WalkDir " + canPath
 
 		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..skipping")
+			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..skipping") // zip abort
 			return fs.SkipDir
 		}
 
@@ -58,10 +92,12 @@ func WalkFS(f fs.FS, dir string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirP
 			return fs.SkipDir
 		}
 
+		base := filepath.Base(canPath)
+
 		if info.IsDir() {
 			// entering a new directory. start our DirPrint to capture FilePrint's in this directory
 			dirPrints = append(dirPrints, hdc.DirPrint{
-				Path: p,
+				Path: base,
 			})
 			fmt.Fprintln(log, "INF", logPrefix, "PUSH: this is our current directory to add FilePrints into")
 		} else {
@@ -73,14 +109,14 @@ func WalkFS(f fs.FS, dir string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirP
 				}
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as an zip directory...")
 				fp.Path = canPath // TODO is it useful to include the dir for all these? it's implied / can be deduplicated
-				zip.WalkZipFile(dir, p, fpr, log)
+				walkZipFile(walkPath, p, fpr, log)
 				allDirPrints[canPath] = fp
 				//m.allDirPaths = append(m.allDirPaths, canPath) // not sure yet if useful
 			} else {
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as standalone file...")
 				fd, err := f.Open(p)
 				perr(err)
-				dirPrints[len(dirPrints)-1].Files = append(dirPrints[len(dirPrints)-1].Files, fpr(p, fd))
+				dirPrints[len(dirPrints)-1].Files = append(dirPrints[len(dirPrints)-1].Files, fpr(base, fd))
 			}
 		}
 
@@ -88,7 +124,7 @@ func WalkFS(f fs.FS, dir string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirP
 
 	}
 	doneDirFn := func(p string, d fs.DirEntry) error {
-		canPath, err := canonicalPath(dir, p)
+		canPath, err := canonicalPath(walkPath, p)
 
 		if err != nil {
 			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..skipping")

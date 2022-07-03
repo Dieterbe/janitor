@@ -1,4 +1,4 @@
-package zip
+package app
 
 import (
 	"os"
@@ -26,7 +26,7 @@ func TestWalkZip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			_, zr := mkzip.Do(tt.data)
-			dirPrint, err := WalkZip(zr, "in-memory-test-directory-"+tt.name, "in-memory-test-file-"+tt.name, hdc.Sha256FingerPrint, os.Stderr)
+			dirPrint, err := WalkZip(zr, "test/in-memory/"+tt.name+".zip", hdc.Sha256FingerPrint, os.Stderr)
 			if err != tt.err {
 				t.Errorf("WalkZip() error = %v, wantErr %v", err, tt.err)
 			}
