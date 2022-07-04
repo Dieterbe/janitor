@@ -68,23 +68,23 @@ func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
 		logPrefix := logPrefix + ": WalkDir " + p
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..skipping") // zip aborting
-			return fs.SkipDir
+			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
+			return err
 		}
 
 		canPath, err := canonicalPath(walkPath, p)
 
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..skipping")
-			return fs.SkipDir
+			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
+			return err
 		}
 
 		logPrefix = prefix + ": WalkDir " + canPath
 
 		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..skipping") // zip abort
-			return fs.SkipDir
+			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
+			return err
 		}
 
 		if d.Name() == "__MACOSX" && info.IsDir() {
@@ -138,7 +138,7 @@ func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer
 			//return fs.SkipDir
 		}
 
-		logPrefix := logPrefix + ": DoneDir " + p
+		//logPrefix := logPrefix + ": DoneDir " + p
 
 		allDirPrints[canPath] = dirPrints[len(dirPrints)-1] // our stack should always have at least 1 element.
 
