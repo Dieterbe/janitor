@@ -109,9 +109,15 @@ func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer
 				}
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as an zip directory...")
 				fp.Path = canPath // TODO is it useful to include the dir for all these? it's implied / can be deduplicated
-				walkZipFile(walkPath, p, fpr, log)
+				fp, all, err := walkZipFile(walkPath, p, fpr, log)
+				if err != nil {
+					return err
+				}
+				for k, v := range all {
+					allDirPrints[k] = v
+				}
 				allDirPrints[canPath] = fp
-				//m.allDirPaths = append(m.allDirPaths, canPath) // not sure yet if useful
+				dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, fp)
 			} else {
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as standalone file...")
 				fd, err := f.Open(p)
