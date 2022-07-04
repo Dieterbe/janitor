@@ -8,7 +8,6 @@ import (
 	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/davecgh/go-spew/spew"
 )
 
 var (
@@ -20,9 +19,9 @@ type model struct {
 	scanPaths     []string
 	rootDirPrints []hdc.DirPrint // corresponding to each scanpath. Not sure yet if we'll need this
 	allDirPrints  map[string]hdc.DirPrint
-	allDirPaths   []string         // points to string within allDirs. NOT REALLY USED YET
-	cursor        int              // points to index within allDirPaths
-	selected      map[int]struct{} // points to index within allDirPaths
+	pairSims      []hdc.PairSim
+	cursor        int              // points to index within pairSims
+	selected      map[int]struct{} // points to index within pairSims
 	log           io.Writer
 }
 
@@ -34,13 +33,7 @@ func (m *model) scan() {
 	perr(err)
 	m.rootDirPrints = []hdc.DirPrint{root}
 	m.allDirPrints = all
-	fmt.Fprintln(m.log, "Root:")
-	spew.Config.Indent = "  "
-	spew.Fdump(m.log, root)
-	// fmt.Fprintln(m.log, "Root with fmt:")
-	// fmt.Fprintln(m.log, root)
-	fmt.Fprintln(m.log, "All:")
-	spew.Fdump(m.log, all)
+	m.pairSims = hdc.GetPairSims(all)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {
@@ -75,7 +68,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "down", "j":
-			if m.cursor < len(m.allDirPaths)-1 {
+			if m.cursor < len(m.pairSims)-1 {
 				m.cursor++
 			}
 
@@ -97,23 +90,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := "Processed directories:\n\n"
 
-	for i, canPath := range m.allDirPaths {
+	for i, ps := range m.pairSims {
 
-		// Is the cursor pointing at this DirPrint?
+		// Is the cursor pointing at this Pairesim?
 		cursor := " " // no cursor
 		if m.cursor == i {
 			cursor = ">" // cursor!
 		}
 
-		// Is this DirPrint selected?
+		// Is this PairSim selected?
 		checked := " " // not selected
 		if _, ok := m.selected[i]; ok {
 			checked = "x" // selected!
 		}
 
 		// Render the row
-		obj := m.allDirPrints[canPath]
-		s += fmt.Sprintf("%s [%s] %s - %s\n", cursor, checked, canPath, obj.Path)
+		s += fmt.Sprintf("%s [%s] Path1: %s\nPath2: %s\nSimilarity: %s\n\n", cursor, checked, ps.Path1, ps.Path2, ps.Sim)
 	}
 
 	s += helpStyle("\n up/down/j/k : navigate - s: scan - q: quit\n")
