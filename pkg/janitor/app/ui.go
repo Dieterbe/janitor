@@ -105,7 +105,7 @@ func (m model) View() string {
 		}
 
 		// Render the row
-		s += fmt.Sprintf("%s [%s] Path1: %s\nPath2: %s\nSimilarity: %s\n\n", cursor, checked, ps.Path1, ps.Path2, ps.Sim)
+		s += fmt.Sprintf("%s [%s] Path1: %s\n      Path2: %s\nSimilarity: %s\n\n", cursor, checked, ps.Path1, ps.Path2, ps.Sim)
 	}
 
 	s += helpStyle("\n up/down/j/k : navigate - s: scan - q: quit\n")

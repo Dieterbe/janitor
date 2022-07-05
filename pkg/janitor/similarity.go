@@ -85,7 +85,7 @@ func NewSimilarity(a, b Iterator) Similarity {
 		// specifically, that sha256 hashes don't collide.
 		sim.BytesSame += av.Size
 		similarity := strutil.Similarity(av.Path, bv.Path, metrics.NewHamming())
-		fmt.Printf("similarity between %q and %q is %.2f\n", av.Path, bv.Path, similarity)
+		//fmt.Printf("similarity between %q and %q is %.2f\n", av.Path, bv.Path, similarity)
 		sim.PathSim += similarity
 		a.Next()
 		b.Next()
