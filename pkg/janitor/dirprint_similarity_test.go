@@ -1,4 +1,4 @@
-package hdc
+package janitor
 
 import (
 	"math"

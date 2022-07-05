@@ -8,8 +8,8 @@
 // obvious.
 // Tip: use "go to references" on the data to see where the data is being used.
 // TODO: find a way to unexport these. i assume some of this needs to be imported from other packages.
-// we also can't move this out into a 'testdata' package because it uses the hdc primitive types.
-package hdc
+// we also can't move this out into a 'testdata' package because it uses the janitor primitive types.
+package janitor
 
 import (
 	"encoding/hex"

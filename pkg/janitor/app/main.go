@@ -9,11 +9,11 @@ import (
 
 func Run() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: hdc <path> [<path>...]")
+		fmt.Println("Usage: janitor <path> [<path>...]")
 		os.Exit(1)
 	}
 
-	fd, err := tea.LogToFile("hdc.log", "")
+	fd, err := tea.LogToFile("janitor.log", "")
 	perr(err)
 	defer fd.Close()
 

@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
+	"github.com/Dieterbe/janitor/pkg/janitor"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -17,9 +17,9 @@ var (
 
 type model struct {
 	scanPaths     []string
-	rootDirPrints []hdc.DirPrint // corresponding to each scanpath. Not sure yet if we'll need this
-	allDirPrints  map[string]hdc.DirPrint
-	pairSims      []hdc.PairSim
+	rootDirPrints []janitor.DirPrint // corresponding to each scanpath. Not sure yet if we'll need this
+	allDirPrints  map[string]janitor.DirPrint
+	pairSims      []janitor.PairSim
 	cursor        int              // points to index within pairSims
 	selected      map[int]struct{} // points to index within pairSims
 	log           io.Writer
@@ -29,17 +29,17 @@ func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
 	f := os.DirFS(m.scanPaths[0])
-	root, all, err := WalkFS(f, m.scanPaths[0], hdc.Sha256FingerPrint, m.log)
+	root, all, err := WalkFS(f, m.scanPaths[0], janitor.Sha256FingerPrint, m.log)
 	perr(err)
-	m.rootDirPrints = []hdc.DirPrint{root}
+	m.rootDirPrints = []janitor.DirPrint{root}
 	m.allDirPrints = all
-	m.pairSims = hdc.GetPairSims(all)
+	m.pairSims = janitor.GetPairSims(all)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {
 	return model{
 		scanPaths:    scanPaths,
-		allDirPrints: make(map[string]hdc.DirPrint),
+		allDirPrints: make(map[string]janitor.DirPrint),
 		selected:     make(map[int]struct{}),
 		log:          log,
 	}

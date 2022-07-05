@@ -1,4 +1,4 @@
-package hdc
+package janitor
 
 func perr(err error) {
 	if err != nil {

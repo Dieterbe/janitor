@@ -1,4 +1,4 @@
-# homedirclean
+# Janitor
 
 Experimental work in progress, to make a program that cleans up a filesystem (e.g. /home), by
 1) working on the level of directories and zip archives, rather than individual files.
@@ -29,7 +29,7 @@ However, all the work to actually __act upon__ this data and actually clean your
 
 ### Implementation details
 
-* HDC scans filesystem paths. Scanning involves traversing all files and folders within these paths.
+* Janitor scans filesystem paths. Scanning involves traversing all files and folders within these paths.
 * All encountered Files are represented as "Prints" containing their size, content hash and basename. (note: ownership, permission bits, etc are ignored).
 * All encountered directories are represented by a Print that includes all Prints of the files and directories contained inside of it, except the paths are adjusted to the full path within that directory.
 * The same is true for all encountered zip files, which can be thought of as a "compressed directory".

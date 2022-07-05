@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/fswalk"
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
+	"github.com/Dieterbe/fswalk"
+	"github.com/Dieterbe/janitor/pkg/janitor"
 )
 
 func canonicalPath(dir, p string) (string, error) {
@@ -23,7 +23,7 @@ func canonicalPath(dir, p string) (string, error) {
 	return filepath.Abs(absPath)
 }
 
-func walkZipFile(dir, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+func walkZipFile(dir, base string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 
 	path := filepath.Join(dir, base)
 
@@ -40,22 +40,22 @@ func walkZipFile(dir, base string, fpr hdc.FingerPrinter, log io.Writer) (hdc.Di
 	return WalkZip(zipfs, path, fpr, log)
 }
 
-func WalkZip(f fs.FS, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+func WalkZip(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 	return Walk(f, "WalkZIP: ", walkPath, fpr, log)
 }
 
-func WalkFS(f fs.FS, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+func WalkFS(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 	return Walk(f, "WalkFS : ", walkPath, fpr, log)
 }
 
 // WalkFS walks the filesystem rooted at walkPath (could be a directory or a zip file)
 // and generates the Prints for all folders, files and zip files encountered
 // it returns the root DirPrint as all individual dirprints by path
-func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer) (hdc.DirPrint, map[string]hdc.DirPrint, error) {
+func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 	logPrefix := prefix + walkPath
 	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
-	var dirPrints []hdc.DirPrint                  // stack of dirprints in progress during walking
-	allDirPrints := make(map[string]hdc.DirPrint) // all dirprints encountered.
+	var dirPrints []janitor.DirPrint                  // stack of dirprints in progress during walking
+	allDirPrints := make(map[string]janitor.DirPrint) // all dirprints encountered.
 
 	// Note that WalkDir first processes a directory, then its children
 	// For an example of a walking order, please see the README.md
@@ -96,7 +96,7 @@ func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer
 
 		if info.IsDir() {
 			// entering a new directory. start our DirPrint to capture FilePrint's in this directory
-			dirPrints = append(dirPrints, hdc.DirPrint{
+			dirPrints = append(dirPrints, janitor.DirPrint{
 				Path: base,
 			})
 			fmt.Fprintln(log, "INF", logPrefix, "PUSH: this is our current directory to add FilePrints into")
@@ -156,7 +156,7 @@ func Walk(f fs.FS, prefix, walkPath string, fpr hdc.FingerPrinter, log io.Writer
 	}
 	err := fswalk.WalkDir(f, ".", walkDirFn, doneDirFn)
 	if err != nil {
-		return hdc.DirPrint{}, nil, err
+		return janitor.DirPrint{}, nil, err
 	}
 	if len(dirPrints) != 1 {
 		panic(fmt.Sprintf("unexpected number of dirPrints %d: %v", len(dirPrints), dirPrints))

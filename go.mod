@@ -1,4 +1,4 @@
-module github.com/Dieterbe/sandbox/homedirclean
+module github.com/Dieterbe/janitor
 
 go 1.18
 

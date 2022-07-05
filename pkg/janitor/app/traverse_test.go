@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/Dieterbe/sandbox/homedirclean/pkg/hdc"
+	"github.com/Dieterbe/janitor/pkg/janitor"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -20,15 +20,15 @@ func TestTraverse(t *testing.T) {
 	var tests = []struct {
 		name string
 		data fstest.MapFS
-		want hdc.DirPrint
+		want janitor.DirPrint
 		err  error
 	}{
-		{"main", hdc.DataMain, hdc.DataMainPrint, nil},
+		{"main", janitor.DataMain, janitor.DataMainPrint, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			dirPrint, _, err := WalkZip(tt.data, "test/in-memory/"+tt.name+".zip", hdc.Sha256FingerPrint, os.Stderr)
+			dirPrint, _, err := WalkZip(tt.data, "test/in-memory/"+tt.name+".zip", janitor.Sha256FingerPrint, os.Stderr)
 			if err != tt.err {
 				t.Errorf("WalkZip() error = %v, wantErr %v", err, tt.err)
 			}
@@ -44,8 +44,8 @@ func TestTraverse(t *testing.T) {
 	}
 }
 
-func mkFilePrint(p string, content string) hdc.FilePrint {
-	return hdc.FilePrint{
+func mkFilePrint(p string, content string) janitor.FilePrint {
+	return janitor.FilePrint{
 		Path: p,
 		Size: int64(len(content)),
 		Hash: sha256.Sum256([]byte(content)),
@@ -63,53 +63,53 @@ func TestTraverseTestdata(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := os.DirFS(dir)
-	root, all, err := WalkFS(f, dir, hdc.Sha256FingerPrint, ioutil.Discard)
+	root, all, err := WalkFS(f, dir, janitor.Sha256FingerPrint, ioutil.Discard)
 
-	dpDir2 := hdc.DirPrint{
+	dpDir2 := janitor.DirPrint{
 		Path: "dir2",
-		Files: []hdc.FilePrint{
+		Files: []janitor.FilePrint{
 			mkFilePrint("b.txt", "b\n"),
 		},
 	}
-	dpDir1 := hdc.DirPrint{
+	dpDir1 := janitor.DirPrint{
 		Path: "dir1",
-		Files: []hdc.FilePrint{
+		Files: []janitor.FilePrint{
 			mkFilePrint("a", "a\n"),
 			mkFilePrint("foo", "foo\n"),
 		},
-		Dirs: []hdc.DirPrint{dpDir2},
+		Dirs: []janitor.DirPrint{dpDir2},
 	}
-	dpDir2AndMore := hdc.DirPrint{
+	dpDir2AndMore := janitor.DirPrint{
 		Path: "dir2-and-more",
-		Files: []hdc.FilePrint{
+		Files: []janitor.FilePrint{
 			mkFilePrint("b.txt", "b\n"),
 			mkFilePrint("otherfile", "otherfile\n"),
 		},
 	}
-	dpUnrelated := hdc.DirPrint{
+	dpUnrelated := janitor.DirPrint{
 		Path: "unrelated",
-		Files: []hdc.FilePrint{
+		Files: []janitor.FilePrint{
 			mkFilePrint("unrelated.txt", "completely unrelated\n"),
 		},
 	}
-	dpDir1Zip := hdc.DirPrint{
+	dpDir1Zip := janitor.DirPrint{
 		Path: "dir1.zip",
-		Dirs: []hdc.DirPrint{
+		Dirs: []janitor.DirPrint{
 			dpDir1,
 		},
 	}
-	dpDir2Zip := hdc.DirPrint{
+	dpDir2Zip := janitor.DirPrint{
 		Path: "dir2.zip",
-		Dirs: []hdc.DirPrint{
+		Dirs: []janitor.DirPrint{
 			dpDir2,
 		},
 	}
 	dpDir2ContentsZip := dpDir2
 	dpDir2ContentsZip.Path = "dir2-contents.zip"
 
-	dpDirRoot := hdc.DirPrint{
+	dpDirRoot := janitor.DirPrint{
 		Path: "testdata",
-		Dirs: []hdc.DirPrint{
+		Dirs: []janitor.DirPrint{
 			dpDir1,
 			dpDir1Zip,
 			dpDir2AndMore,
@@ -119,7 +119,7 @@ func TestTraverseTestdata(t *testing.T) {
 		},
 	}
 
-	expAll := map[string]hdc.DirPrint{
+	expAll := map[string]janitor.DirPrint{
 		dir:                                      dpDirRoot,
 		filepath.Join(dir, "dir1"):               dpDir1,
 		filepath.Join(dir, "dir1/dir2"):          dpDir2,
