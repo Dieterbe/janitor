@@ -3,6 +3,7 @@ module github.com/Dieterbe/janitor
 go 1.18
 
 require (
+	github.com/Dieterbe/fswalk v0.0.0-20220705124011-de420095b3b8
 	github.com/adrg/strutil v0.3.0
 	github.com/charmbracelet/bubbletea v0.21.0
 	github.com/charmbracelet/lipgloss v0.5.0
