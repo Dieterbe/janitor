@@ -13,14 +13,14 @@ func Run() {
 		os.Exit(1)
 	}
 
-	fd, err := tea.LogToFile("janitor.log", "")
+	log, err := tea.LogToFile("janitor.log", "")
 	perr(err)
-	defer fd.Close()
+	defer log.Close()
 
-	p := tea.NewProgram(newModel(os.Args[1:], fd), tea.WithAltScreen())
+	p := tea.NewProgram(newModel(os.Args[1:], log), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
-		fmt.Fprintf(fd, "ERROR there's been an error: %v - shutting down", err)
+		fmt.Fprintf(log, "ERROR there's been an error: %v - shutting down", err)
 		os.Exit(1)
 	}
-	fmt.Fprintln(fd, "INF closing")
+	fmt.Fprintln(log, "INF closing")
 }
