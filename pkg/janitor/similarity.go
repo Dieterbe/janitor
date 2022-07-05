@@ -3,6 +3,7 @@ package janitor
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/adrg/strutil"
@@ -13,6 +14,18 @@ type Similarity struct {
 	BytesSame int64
 	BytesDiff int64
 	PathSim   float64 // (average of all path similarities for content with a hash match)
+}
+
+func (s Similarity) Identical() bool {
+	if s.BytesDiff > 0 {
+		return false
+	}
+	// this is... probably good enough?
+	// TODO bump higher
+	if s.PathSim < 0.8 {
+		return false
+	}
+	return true
 }
 
 func (s Similarity) String() string {
@@ -104,16 +117,29 @@ type PairSim struct {
 	Sim   Similarity
 }
 
-func GetPairSims(all map[string]DirPrint) []PairSim {
+// dir is the directory that was walked to obtain all given dirprints
+func GetPairSims(dir string, all map[string]DirPrint) []PairSim {
 	type seenKey struct {
 		p1 string
 		p2 string
 	}
-	seen := make(map[seenKey]struct{})
+	seen := make(map[seenKey]PairSim)
 	var pairSims []PairSim
 
-	for k1, dp1 := range all {
-		for k2, dp2 := range all {
+	keys := make([]string, 0, len(all))
+	for k := range all {
+		keys = append(keys, k)
+	}
+
+	// make sure parent directories come before children directories.
+	// will allow us to skip over testing children if the parents are already identical
+	sort.Strings(keys)
+
+	for _, k1 := range keys {
+		dp1 := all[k1]
+	Loop2:
+		for _, k2 := range keys {
+			dp2 := all[k2]
 
 			// don't compare to self
 			if k1 == k2 {
@@ -125,9 +151,9 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 			if SubPath(k1, k2) || SubPath(k2, k1) {
 				continue
 			}
-			sk := seenKey{k1, k2}
+			sk := seenKey{p1: k1, p2: k2}
 			if k1 > k2 {
-				sk.p1, sk.p2 = sk.p2, sk.p1
+				sk = seenKey{p1: k2, p2: k1}
 			}
 			if _, ok := seen[sk]; ok {
 				// this is a pretty naive way to avoid duplicates
@@ -135,7 +161,42 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 				// for now, this is good enough
 				continue
 			}
-			seen[sk] = struct{}{}
+
+			// try to skip these directories if we know their parents/grandparents to be identical already
+			// in that case, there's no value in saying their children are also identical.
+			parentSeenKey := sk
+			// fmt.Println("### DIE seenkey", sk)
+			for parentSeenKey.p1 != "/" && parentSeenKey.p2 != "/" {
+
+				parentSeenKey.p1 = filepath.Dir(parentSeenKey.p1)
+				parentSeenKey.p2 = filepath.Dir(parentSeenKey.p2)
+				if len(parentSeenKey.p1) < len(dir) || len(parentSeenKey.p2) < len(dir) {
+					// we have reached a pair that certainly won't have been considered
+					// because one of the paths is not within the walked directory.
+					break
+				}
+
+				parents, ok := seen[parentSeenKey]
+				if !ok {
+					// try the flipped order
+					parentSeenKey.p1, parentSeenKey.p2 = parentSeenKey.p2, parentSeenKey.p1
+					parents, ok = seen[parentSeenKey]
+				}
+				if ok {
+					if parents.Sim.Identical() {
+						// fmt.Println("DIE parent", parentSeenKey, "identical. CAN SKIP WOOHOOO")
+						continue Loop2
+					} else {
+						// fmt.Println("DIE parent", parentSeenKey, "NOT IDENTICAL")
+						// if the parents are certainly not identical, then
+						// we can give up trying to find an identical grandparent.
+						// instead let's compute the similarity for the children.
+						break
+					}
+				}
+				// if we haven't seen parents, than perhaps we've seen the grandparents.. probably not though (?)
+				// fmt.Println("DIE parent", parentSeenKey, "NOT FONUD")
+			}
 
 			it1 := dp1.Iterator()
 			it2 := dp2.Iterator()
@@ -144,6 +205,7 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 				Path2: sk.p2,
 				Sim:   NewSimilarity(it1, it2),
 			}
+			seen[sk] = p
 			pairSims = append(pairSims, p)
 		}
 	}

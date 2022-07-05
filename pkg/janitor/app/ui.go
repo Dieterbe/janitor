@@ -28,12 +28,13 @@ type model struct {
 func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
-	f := os.DirFS(m.scanPaths[0])
-	root, all, err := WalkFS(f, m.scanPaths[0], janitor.Sha256FingerPrint, m.log)
+	dir := m.scanPaths[0]
+	f := os.DirFS(dir)
+	root, all, err := WalkFS(f, dir, janitor.Sha256FingerPrint, m.log)
 	perr(err)
 	m.rootDirPrints = []janitor.DirPrint{root}
 	m.allDirPrints = all
-	m.pairSims = janitor.GetPairSims(all)
+	m.pairSims = janitor.GetPairSims(dir, all)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {
