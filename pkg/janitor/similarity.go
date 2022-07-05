@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
@@ -115,10 +114,15 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 
 	for k1, dp1 := range all {
 		for k2, dp2 := range all {
+
+			// don't compare to self
 			if k1 == k2 {
 				continue
 			}
-			if strings.HasPrefix(k1, k2) || strings.HasPrefix(k2, k1) {
+
+			// don't compare to a subdirectory of self.
+			// e.g. pointless to compare /foo/bar/baz to /foo/bar , it's obvious they will have some similarity, but not due to redundancy of data warranting cleanup.
+			if SubPath(k1, k2) || SubPath(k2, k1) {
 				continue
 			}
 			sk := seenKey{k1, k2}
