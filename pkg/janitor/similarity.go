@@ -28,9 +28,13 @@ func (s Similarity) Identical() bool {
 	return true
 }
 
-func (s Similarity) String() string {
+func (s Similarity) ContentSimilarity() float64 {
 	// TODO could this overflow?
-	return fmt.Sprintf("<Similarity bytes=%.2f path=%.2f>", float64(s.BytesSame)/float64(s.BytesSame+s.BytesDiff), s.PathSim)
+	return float64(s.BytesSame) / float64(s.BytesSame+s.BytesDiff)
+}
+
+func (s Similarity) String() string {
+	return fmt.Sprintf("<Similarity bytes=%.2f path=%.2f>", s.ContentSimilarity(), s.PathSim)
 }
 
 func (s1 Similarity) Less(s2 Similarity) bool {
