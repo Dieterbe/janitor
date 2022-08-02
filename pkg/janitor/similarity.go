@@ -33,19 +33,22 @@ func (s Similarity) String() string {
 // CompareBytes returns -1 if s1 has lower similarity amongst it bytes than s2, +1 if it's opposite,
 // or 0 if they are equivalent.  Similarity is defined as same / (same+diff)
 func (s1 Similarity) CompareBytes(s2 Similarity) int {
-	// First we simplify the formula to remove float conversions and rounding errors.
+	// First we do an algebraic simplification of the formula to remove float conversions and rounding errors.
 	//                                                                                                  # starting formula
 	// if s1.BytesSame / (s1.BytesSame + s1.BytesDiff) < s2.BytesSame / (s2.BytesSame + s2.BytesDiff) {
-	//                                                                                                  # work out (expand) the divisions to separate terms
-	// if 1 + s1.BytesSame / s1.BytesDiff              < 1 + s2.BytesSame s2.BytesDiff
-	//                                                                                                  # subtract 1 from both sides
-	// if s1.BytesSame/s1.BytesDiff                    < s2.BytesSame/s2.BytesDiff
-	//                                                                                                  # multiply both sides by s1.BytesDiff*s2.BytesDiff
-	// if s1.BytesSame*s2.BytesDiff                    < s2.BytesSame*s1.BytesDiff
-	if s1.BytesSame*s2.BytesDiff < s2.BytesSame*s1.BytesDiff {
+	//                                                                                                  # invert both sides
+	// if (s1.BytesSame + s1.BytesDiff) / s1.BytesSame > (s2.BytesSame + s2.BytesDiff) / s2.BytesSame {
+	//                                                                                                  # multiply both sides by s1.BytesSame*s2.BytesSame
+	// if (s1.BytesSame + s1.BytesDiff) * s2.BytesSame > (s2.BytesSame + s2.BytesDiff) * s1.BytesSame {
+	//                                                                                                  # work out (expand) the multiplications to separate terms
+	// if s1.BytesSame*s2.BytesSame + s1.BytesDiff*s2.BytesSame > s2.BytesSame*s1.BytesSame + s2.BytesDiff* s1.BytesSame
+	//                                                                                                  # remove common term
+	// if s1.BytesDiff*s2.BytesSame > s2.BytesDiff*s1.BytesSame {
+
+	if s2.BytesSame*s1.BytesDiff > s1.BytesSame*s2.BytesDiff {
 		return -1
 	}
-	if s1.BytesSame*s2.BytesDiff > s2.BytesSame*s1.BytesDiff {
+	if s2.BytesSame*s1.BytesDiff > s1.BytesSame*s2.BytesDiff {
 		return 1
 	}
 	return 0
