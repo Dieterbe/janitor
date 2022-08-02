@@ -12,10 +12,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// TODO run same tests on "regular directory"? these are not specific to zip
+// TestWalk tests whether a walk over an in-memory FS results in the expected DirPrints.
 // TODO do we have a test anywhere that also checks for adding the "intermediate" dirprints?
 // similar test that has a full path AND a zip file?
-func TestTraverse(t *testing.T) {
+func TestWalk(t *testing.T) {
 
 	var tests = []struct {
 		name string
@@ -28,16 +28,16 @@ func TestTraverse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			dirPrint, _, err := WalkZip(tt.data, "test/in-memory/"+tt.name+".zip", janitor.Sha256FingerPrint, os.Stderr)
+			dirPrint, _, err := WalkFS(tt.data, "test/in-memory/"+tt.name+".zip", janitor.Sha256FingerPrint, os.Stderr)
 			if err != tt.err {
-				t.Errorf("WalkZip() error = %v, wantErr %v", err, tt.err)
+				t.Errorf("Walk() error = %v, wantErr %v", err, tt.err)
 			}
 			if err != nil {
 				return
 			}
 
 			if diff := cmp.Diff(tt.want, dirPrint); diff != "" {
-				t.Errorf("WalkZip() mismatch (-want +got):\n%s", diff)
+				t.Errorf("Walk() mismatch (-want +got):\n%s", diff)
 			}
 		})
 
@@ -52,7 +52,8 @@ func mkFilePrint(p string, content string) janitor.FilePrint {
 	}
 }
 
-func TestTraverseTestdata(t *testing.T) {
+// TestWalkTestData tests whether a walk over the sample testdata results in the expected DirPrints.
+func TestWalkTestdata(t *testing.T) {
 	// get absolute directory for the testdata directory
 	dir, err := os.Getwd()
 	if err != nil {
@@ -133,12 +134,12 @@ func TestTraverseTestdata(t *testing.T) {
 		filepath.Join(dir, "dir2.zip/dir2"):      dpDir2,
 	}
 	if err != nil {
-		t.Errorf("WalkFS() error = %v", err)
+		t.Errorf("Walk() error = %v", err)
 	}
 	if diff := cmp.Diff(dpDirRoot, root); diff != "" {
-		t.Errorf("WalkFS() root mismatch (-want +got):\n%s", diff)
+		t.Errorf("Walk() root mismatch (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff(expAll, all); diff != "" {
-		t.Errorf("WalkFS() all mismatch (-want +got):\n%s", diff)
+		t.Errorf("Walk() all mismatch (-want +got):\n%s", diff)
 	}
 }
