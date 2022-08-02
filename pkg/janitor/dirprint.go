@@ -8,7 +8,7 @@ import (
 )
 
 type DirPrint struct {
-	Path  string
+	Path  string // always the basename, or "." for the root dir
 	Files []FilePrint
 	Dirs  []DirPrint
 }
@@ -123,7 +123,7 @@ func (fpi *DirPrintIterator) Next() bool {
 		// advance the iterator we have chosen to consume from
 		fpi.its[toAdvance].Next()
 
-		// when we pull a fileprint into its parent dir, we need to update the path accordingly
+		// when we pull a fileprint into its parent dir, we need to update the path accordingly.
 		fpi.v.Path = filepath.Join(fpi.path, fpi.v.Path)
 	}
 

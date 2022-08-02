@@ -100,7 +100,7 @@ func init() {
 	}
 
 	DataMainPrint = DirPrint{
-		Path: "main.zip",
+		Path: ".",
 		Files: []FilePrint{
 			{
 				Path: "somefile",
@@ -155,7 +155,7 @@ func init() {
 	// deliberately try a few random orders between files in the same dir, which also
 	// explains why we create a new structure here.
 	DataMain2Print = DirPrint{
-		Path: "root",
+		Path: ".",
 		Files: []FilePrint{
 			{
 				Path: "a",
@@ -196,27 +196,27 @@ func init() {
 	// we test: hierachy flattening, path concat, hash based ordering
 	DataMain2Iterated = []FilePrint{
 		{
-			Path: "root/z",
+			Path: "z",
 			Hash: h1,
 			Size: 100,
 		},
 		{
-			Path: "root/a",
+			Path: "a",
 			Hash: h2,
 			Size: 122,
 		},
 		{
-			Path: "root/b/2",
+			Path: "b/2",
 			Hash: h3,
 			Size: 333,
 		},
 		{
-			Path: "root/b/1",
+			Path: "b/1",
 			Hash: h4,
 			Size: 444,
 		},
 		{
-			Path: "root/b/3",
+			Path: "b/3",
 			Hash: h5,
 			Size: 555,
 		},
@@ -228,38 +228,38 @@ func init() {
 	DataMain3Iterated = []FilePrint{
 		// in DataMain2Iterated but not here
 		//{
-		//	Path: "root/z",
+		//	Path: "z",
 		//	Hash: h1,
 		//	Size: 100,
 		//},
 		// identical
 		{
-			Path: "root/a",
+			Path: "a",
 			Hash: h2,
 			Size: 122,
 		},
 		// identical
 		{
-			Path: "root/b/2",
+			Path: "b/2",
 			Hash: h3,
 			Size: 333,
 		},
 		// hash mismatch. note that this file contributes two times to the bytes differing, due to it existing with 2 different hashes.
 		// whether this is correct behavior, is debatable. but anyway at least it's simple code.
 		{
-			Path: "root/b/1",
+			Path: "b/1",
 			Hash: h6, // need a hash here that sorts after h3
 			Size: 444,
 		},
 		// file that we have, but DataMain2Iterated doesn't.
 		{
-			Path: "root/b/4",
+			Path: "b/4",
 			Hash: h7, // needs to sort after the hash above, but before h5
 			Size: 7777,
 		},
 		// identical file to DataMain2Iterated but different path
 		{
-			Path: "root/3.copy", // similarity is 0.45
+			Path: "3.copy", // similarity is 0.45
 			Hash: h5,
 			Size: 555,
 		},

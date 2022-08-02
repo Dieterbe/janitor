@@ -28,7 +28,7 @@ func TestWalk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			dirPrint, _, err := WalkFS(tt.data, "test/in-memory/"+tt.name+".zip", janitor.Sha256FingerPrint, os.Stderr)
+			dirPrint, _, err := WalkFS(tt.data, "/test/in-memory/"+tt.name+".zip", janitor.Sha256FingerPrint, os.Stderr)
 			if err != tt.err {
 				t.Errorf("Walk() error = %v, wantErr %v", err, tt.err)
 			}
@@ -109,7 +109,7 @@ func TestWalkTestdata(t *testing.T) {
 	dpDir2ContentsZip.Path = "dir2-contents.zip"
 
 	dpDirRoot := janitor.DirPrint{
-		Path: "testdata",
+		Path: ".",
 		Dirs: []janitor.DirPrint{
 			dpDir1,
 			dpDir1Zip,
@@ -121,17 +121,17 @@ func TestWalkTestdata(t *testing.T) {
 	}
 
 	expAll := map[string]janitor.DirPrint{
-		dir:                                      dpDirRoot,
-		filepath.Join(dir, "dir1"):               dpDir1,
-		filepath.Join(dir, "dir1/dir2"):          dpDir2,
-		filepath.Join(dir, "dir2-and-more"):      dpDir2AndMore,
-		filepath.Join(dir, "unrelated"):          dpUnrelated,
-		filepath.Join(dir, "dir1.zip"):           dpDir1Zip,
-		filepath.Join(dir, "dir1.zip/dir1"):      dpDir1,
-		filepath.Join(dir, "dir1.zip/dir1/dir2"): dpDir2,
-		filepath.Join(dir, "dir2-contents.zip"):  dpDir2ContentsZip,
-		filepath.Join(dir, "dir2.zip"):           dpDir2Zip,
-		filepath.Join(dir, "dir2.zip/dir2"):      dpDir2,
+		".":                  dpDirRoot,
+		"dir1":               dpDir1,
+		"dir1/dir2":          dpDir2,
+		"dir2-and-more":      dpDir2AndMore,
+		"unrelated":          dpUnrelated,
+		"dir1.zip":           dpDir1Zip,
+		"dir1.zip/dir1":      dpDir1,
+		"dir1.zip/dir1/dir2": dpDir2,
+		"dir2-contents.zip":  dpDir2ContentsZip,
+		"dir2.zip":           dpDir2Zip,
+		"dir2.zip/dir2":      dpDir2,
 	}
 	if err != nil {
 		t.Errorf("Walk() error = %v", err)

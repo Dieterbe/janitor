@@ -2,7 +2,7 @@
 
 * Janitor scans filesystem paths. Scanning involves traversing all files and folders within these paths.
 * All encountered Files are represented as "Prints" containing their size, content hash and basename. (note: ownership, permission bits, etc are ignored).
-* All encountered directories are represented by a Print that includes all Prints of the files and directories contained inside of it, except the paths are adjusted to the full path within that directory.
+* All encountered directories are represented by a Print that includes all Prints of the files and directories contained inside of it, except the paths are adjusted to the full path within that directory (upon iteration)
 * The same is true for all encountered zip files, which can be thought of as a "compressed directory".
 * Every subfolder and zip file in the scanpath is represented by a DirPrint, even subfolders within zip files. While the user can't remove directories inside of zip files, it seems useful information, though this can be changed.
 * Similarity between DirPrints consists of 2 values:

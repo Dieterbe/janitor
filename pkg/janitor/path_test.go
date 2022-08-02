@@ -12,44 +12,44 @@ func TestSubPath(t *testing.T) {
 		expSubPathInclusive bool
 	}{
 		{
-			p1:                  "/",
-			p2:                  "/foo",
+			p1:                  ".",
+			p2:                  "foo",
 			expSubPath:          true,
 			expSubPathInclusive: true,
 		},
 		{
-			p1:                  "/foo",
-			p2:                  "/foo/bar",
+			p1:                  "foo",
+			p2:                  "foo/bar",
 			expSubPath:          true,
 			expSubPathInclusive: true,
 		},
 		{
-			p1:                  "/foo/bar",
-			p2:                  "/foo/bar.zip", // if we were to do a simple strings.HasPrefix check, it would fail here.
+			p1:                  "foo/bar",
+			p2:                  "foo/bar.zip", // if we were to do a simple strings.HasPrefix check, it would fail here.
 			expSubPath:          false,
 			expSubPathInclusive: false,
 		},
 		{
-			p1:                  "/foo/bar",
-			p2:                  "/foo/bar",
+			p1:                  "foo/bar",
+			p2:                  "foo/bar",
 			expSubPath:          false,
 			expSubPathInclusive: true,
 		},
 		{
-			p1:                  "/foo/bar/",
-			p2:                  "/foo/bar",
+			p1:                  "foo/bar/",
+			p2:                  "foo/bar",
 			expSubPath:          false,
 			expSubPathInclusive: true,
 		},
 		{
-			p1:                  "/home/dieter/go/src/github.com/Dieterbe/janitor/pkg/janitor/testdata/dir1.zip/dir1",
-			p2:                  "/home/dieter/go/src/github.com/Dieterbe/janitor/pkg/janitor/testdata/dir1",
+			p1:                  "dir1.zip/dir1",
+			p2:                  "dir1",
 			expSubPath:          false,
 			expSubPathInclusive: false,
 		},
 		{
-			p1:                  "/home/dieter/go/src/github.com/Dieterbe/janitor/pkg/janitor/testdata/dir1",
-			p2:                  "/home/dieter/go/src/github.com/Dieterbe/janitor/pkg/janitor/testdata/dir1.zip/dir1",
+			p1:                  "dir1",
+			p2:                  "dir1.zip/dir1",
 			expSubPath:          false,
 			expSubPathInclusive: false,
 		},

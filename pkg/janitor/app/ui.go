@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/Dieterbe/janitor/pkg/janitor"
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,8 +29,13 @@ type model struct {
 func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
-	// note: user input could be absolute or relative, and may include sections such as ./, /../ which add no meaning
-	dir := m.scanPaths[0]
+	// user input could be absolute or relative, and may include sections such as ./, /../ which add no meaning
+	// likewise, running the tool in different locations with different relative paths may refer to the same absolute locations
+	// it seems prudent to make the path "canonical" (absolute and simplified), even though at this time we don't strictly rely on it
+	// (e.g. the tool does not yet - and has no plans for - persisting information across different runs), but at least
+	// this ways things should be more obvious to the end user, especially if output text gets shared later without context about where the tool was run from.
+	dir, err := filepath.Abs(m.scanPaths[0])
+	perr(err)
 	f := os.DirFS(dir)
 	root, all, err := WalkFS(f, dir, janitor.Sha256FingerPrint, m.log)
 	perr(err)

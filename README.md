@@ -31,3 +31,6 @@ but in absence of that, [charm.sh/bubbletea](https://github.com/charmbracelet/bu
 ## Implementation details
 
 see [./implementation.md](implementation details)
+
+
+no symlink support at all. you can create loops or cause the same files to be rescanned if symlinks point to already scanned data, which may lead to false positives!

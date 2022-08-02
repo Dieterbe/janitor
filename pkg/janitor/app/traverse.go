@@ -6,30 +6,13 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/Dieterbe/fswalk"
 	"github.com/Dieterbe/janitor/pkg/janitor"
 )
 
-// canonicalPath returns the cleaned, absolute path for p within walkPath
-// walkPath could be absolute or relative - it depends on user input
-// p is path within the walked directory
-func canonicalPath(walkPath, p string) (string, error) {
-	// TODO: also make this follow symlinks?
-	// the idea would be that if multiple paths point to the same file/dir,
-	// we recognize it somehow and deduplicate it in the output, or at least only scan once.
-
-	absPath := filepath.Join(walkPath, p)
-
-	// filepath.Abs is a bit poorly named IMHO. It:
-	// makes sure the path is absolute in case it isn't already
-	// simplifies the path by cleaning elements such as ./ and /../
-	return filepath.Abs(absPath)
-}
-
-func walkZipFile(dir, base string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
-
-	path := filepath.Join(dir, base)
+func walkZipFile(path string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 
 	zipfs, err := zip.OpenReader(path)
 
@@ -52,22 +35,24 @@ func WalkFS(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) 
 	return Walk(f, "WalkFS : ", walkPath, fpr, log)
 }
 
-// WalkFS walks the filesystem rooted at walkPath (could be a directory or a zip file)
+// WalkFS walks the filesystem rooted at walkPath (absolute path to a directory or zip file)
 // and generates the Prints for all folders, files and zip files encountered
-// it returns the root DirPrint as all individual dirprints by path
+// it returns the root DirPrint and all individual dirprints by path within walkPath (which is implicit)
 func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
+	if !strings.HasPrefix(walkPath, "/") {
+		panic(fmt.Sprintf("expected an absolute path. not %q - may not be strictly necessary, but it makes output clearer. this should never happen", walkPath))
+	}
 	logPrefix := prefix + walkPath
-	fmt.Fprintln(log, "INF", logPrefix, "starting walk") // abs or relative, direct user input
-	var dirPrints []janitor.DirPrint                     // stack of dirprints in progress during walking
-	allDirPrints := make(map[string]janitor.DirPrint)    // all dirprints encountered. TODO by abs or rel path?
+	fmt.Fprintln(log, "INF", logPrefix+": START!!")
+	var dpStack []janitor.DirPrint                // dirprints in progress during walking.
+	var dpAll = make(map[string]janitor.DirPrint) // to be returned
 
 	// Note that WalkDir first processes a directory, then its children
-	// For an example of a walking order, please see the README.md
 
-	// p is the filename within the zip file, and d is the corresponding dirEntry
-	// Note: it is assumed zip files on the system are trusted. Either way we won't actually extract them onto the system
-	// (only in memory to get the hashes)
-	// That said, we may want to add zip slip protection here. see https://gosamples.dev/unzip-file/
+	// p is the filename within the zip file (or walked dir), and d is the corresponding dirEntry
+	// Note that we never extract zip files onto the filesystem.  (only in memory to get the hashes)
+	// Thus, zip slip protection as in https://gosamples.dev/unzip-file/ is not needed.
+	// in fact, for this tool, let's deliberately allow path elements like ../../foo/bar, because eliding them would remove information about the path within the zip.
 
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
 		logPrefix := logPrefix + ": WalkDir " + p
@@ -75,15 +60,6 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
 			return err
 		}
-
-		canPath, err := canonicalPath(walkPath, p)
-
-		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
-			return err
-		}
-
-		logPrefix = prefix + ": WalkDir " + canPath
 
 		info, err := d.Info()
 		if err != nil {
@@ -96,63 +72,53 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 			return fs.SkipDir
 		}
 
-		base := filepath.Base(canPath)
-
 		if info.IsDir() {
 			// entering a new directory. start our DirPrint to capture FilePrint's in this directory
-			dirPrints = append(dirPrints, janitor.DirPrint{
-				Path: base,
-			})
+			dpStack = append(dpStack, janitor.DirPrint{Path: filepath.Base(p)})
 			fmt.Fprintln(log, "INF", logPrefix, "PUSH: this is our current directory to add FilePrints into")
 		} else {
 			if filepath.Ext(p) == ".zip" {
-				fp, ok := allDirPrints[canPath]
-				if ok {
-					fmt.Fprintf(log, "INF %s fingerprint for this zip already exists. (original path %q, this path %q). skipping", logPrefix, fp.Path, p)
-					return nil
-				}
-				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as an zip directory...")
-				fp.Path = canPath // TODO is it useful to include the dir for all these? it's implied / can be deduplicated
-				fp, all, err := walkZipFile(walkPath, p, fpr, log)
+				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as a zip directory...")
+				path := filepath.Join(walkPath, p)
+				dp, all, err := walkZipFile(path, fpr, log)
 				if err != nil {
 					return err
 				}
 				for k, v := range all {
-					allDirPrints[k] = v
+					// normally if you call a walk function, the paths of returned dirprints don't include the walkPath prefix, as it is implied.
+					// since we called walk within our walk, we have to prepend the portion of the path after (within) *our* walkPath
+					dpAll[filepath.Join(p, k)] = v
 				}
-				allDirPrints[canPath] = fp
-				dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, fp)
+				// normally if you call a walk function, dp.Path is "." for the root dir (or in this case, the zip file), as the path is implied from the walkpath.
+				// since we called within our walk, we must set path properly (which is per definition always the basename)
+				dp.Path = filepath.Base(p)
+				dpAll[p] = dp
+				dpStack[len(dpStack)-1].Dirs = append(dpStack[len(dpStack)-1].Dirs, dp)
 			} else {
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as standalone file...")
 				fd, err := f.Open(p)
 				perr(err)
-				dirPrints[len(dirPrints)-1].Files = append(dirPrints[len(dirPrints)-1].Files, fpr(base, fd))
+				pr := fpr(filepath.Base(p), fd)
+				fd.Close()
+				dpStack[len(dpStack)-1].Files = append(dpStack[len(dpStack)-1].Files, pr)
 			}
 		}
 
 		return nil
-
 	}
+
 	doneDirFn := func(p string, d fs.DirEntry) error {
-		canPath, err := canonicalPath(walkPath, p)
+		logPrefix := logPrefix + ": DoneDir " + p
 
-		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "failed to get canonical path for this entry", err, "..skipping")
-			panic("this should never happen. WalkDirFunc should have already returned an error")
-			//return fs.SkipDir
-		}
-
-		//logPrefix := logPrefix + ": DoneDir " + p
-
-		allDirPrints[canPath] = dirPrints[len(dirPrints)-1] // our stack should always have at least 1 element.
+		dpAll[p] = dpStack[len(dpStack)-1] // our stack should always have at least 1 element.
 
 		// we are done with a directory, add it to its parent
 		// unless this was the root directory, which has no parent and will be the ultimate DirPrint to return below
-		if len(dirPrints) > 1 {
+		if len(dpStack) > 1 {
 			fmt.Fprintln(log, "INF", logPrefix, "POP: adding this dir to its parent")
-			popped := dirPrints[len(dirPrints)-1]
-			dirPrints = dirPrints[:len(dirPrints)-1]
-			dirPrints[len(dirPrints)-1].Dirs = append(dirPrints[len(dirPrints)-1].Dirs, popped)
+			popped := dpStack[len(dpStack)-1]
+			dpStack = dpStack[:len(dpStack)-1]
+			dpStack[len(dpStack)-1].Dirs = append(dpStack[len(dpStack)-1].Dirs, popped)
 			return nil
 		}
 		fmt.Fprintln(log, "INF", logPrefix, "POP: this dir is the root and is complete")
@@ -162,8 +128,8 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 	if err != nil {
 		return janitor.DirPrint{}, nil, err
 	}
-	if len(dirPrints) != 1 {
-		panic(fmt.Sprintf("unexpected number of dirPrints %d: %v", len(dirPrints), dirPrints))
+	if len(dpStack) != 1 {
+		panic(fmt.Sprintf("unexpected number of dirPrints %d: %v", len(dpStack), dpStack))
 	}
-	return dirPrints[0], allDirPrints, nil
+	return dpStack[0], dpAll, nil
 }

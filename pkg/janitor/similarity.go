@@ -130,6 +130,7 @@ type PairSim struct {
 	Sim   Similarity
 }
 
+// keys are paths within an implicit walkPath
 func GetPairSims(all map[string]DirPrint) []PairSim {
 	type seenKey struct {
 		p1 string
@@ -160,7 +161,7 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 			}
 
 			// don't compare to a subdirectory of self.
-			// e.g. pointless to compare /foo/bar/baz to /foo/bar , it's obvious they will have some similarity, but not due to redundancy of data warranting cleanup.
+			// e.g. pointless to compare foo/bar/baz to foo/bar , it's obvious they will have some similarity, but not due to redundancy of data warranting cleanup.
 			if SubPath(k1, k2) || SubPath(k2, k1) {
 				continue
 			}

@@ -9,7 +9,7 @@ import (
 // Print represents a file's path, size and content.
 // ignored: owner, group, mode, modTime, etc
 type FilePrint struct {
-	Path string
+	Path string // for a fingerprinted file, this is the basename. for an iterated file, this is the path including its parents
 	Size int64
 	Hash [32]byte
 }
@@ -21,8 +21,8 @@ func (fp FilePrint) String() string {
 type FingerPrinter func(path string, r io.Reader) FilePrint
 
 // Sha256FingerPrint computes the sha256 based fingerprint for the given file content
-func Sha256FingerPrint(path string, r io.Reader) FilePrint {
-	pr := FilePrint{Path: path}
+func Sha256FingerPrint(base string, r io.Reader) FilePrint {
+	pr := FilePrint{Path: base}
 
 	h := sha256.New()
 	var err error

@@ -28,10 +28,7 @@ func TestDirPrintSimilarity(t *testing.T) {
 	exp := Similarity{
 		BytesDiff: 100 + 2*444 + 7777,
 		BytesSame: 122 + 333 + 555,
-		// would expect (1+1+1+0.45)/3 = 0.81666..
-		// actually the computed similarity is a bit different: 0.8181818181818182
-		// not sure why, but seems no big deal.
-		PathSim: 0.81,
+		PathSim:   float64(2) / 3,
 	}
 
 	opt := cmp.Comparer(func(x, y float64) bool {
