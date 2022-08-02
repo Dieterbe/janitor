@@ -11,15 +11,19 @@ import (
 	"github.com/Dieterbe/janitor/pkg/janitor"
 )
 
-func canonicalPath(dir, p string) (string, error) {
+// canonicalPath returns the cleaned, absolute path for p within walkPath
+// walkPath could be absolute or relative - it depends on user input
+// p is path within the walked directory
+func canonicalPath(walkPath, p string) (string, error) {
 	// TODO: also make this follow symlinks?
 	// the idea would be that if multiple paths point to the same file/dir,
 	// we recognize it somehow and deduplicate it in the output, or at least only scan once.
 
-	absPath := filepath.Join(dir, p)
+	absPath := filepath.Join(walkPath, p)
 
-	// filepath.Abs is a bit poorly named IMHO. what happens here is we give it an absolute path,
-	// and it returns the "canonical" path with things like ./ and /../ cleaned up
+	// filepath.Abs is a bit poorly named IMHO. It:
+	// makes sure the path is absolute in case it isn't already
+	// simplifies the path by cleaning elements such as ./ and /../
 	return filepath.Abs(absPath)
 }
 
@@ -53,9 +57,9 @@ func WalkFS(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) 
 // it returns the root DirPrint as all individual dirprints by path
 func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 	logPrefix := prefix + walkPath
-	fmt.Fprintln(log, "INF", logPrefix, "starting walk")
-	var dirPrints []janitor.DirPrint                  // stack of dirprints in progress during walking
-	allDirPrints := make(map[string]janitor.DirPrint) // all dirprints encountered.
+	fmt.Fprintln(log, "INF", logPrefix, "starting walk") // abs or relative, direct user input
+	var dirPrints []janitor.DirPrint                     // stack of dirprints in progress during walking
+	allDirPrints := make(map[string]janitor.DirPrint)    // all dirprints encountered. TODO by abs or rel path?
 
 	// Note that WalkDir first processes a directory, then its children
 	// For an example of a walking order, please see the README.md

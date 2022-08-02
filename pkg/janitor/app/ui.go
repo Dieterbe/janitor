@@ -28,6 +28,7 @@ type model struct {
 func (m *model) scan() {
 	// TODO support all paths
 	*m = newModel(m.scanPaths, m.log)
+	// note: user input could be absolute or relative, and may include sections such as ./, /../ which add no meaning
 	dir := m.scanPaths[0]
 	f := os.DirFS(dir)
 	root, all, err := WalkFS(f, dir, janitor.Sha256FingerPrint, m.log)
