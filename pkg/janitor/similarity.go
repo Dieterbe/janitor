@@ -30,18 +30,34 @@ func (s Similarity) String() string {
 	return fmt.Sprintf("<Similarity bytes=%.2f path=%.2f>", s.ContentSimilarity(), s.PathSim)
 }
 
-func (s1 Similarity) Less(s2 Similarity) bool {
-	// calculate which similarity is higher, where similarity is defined as same / (same+diff)
-	// but we simplify the formula to remove float conversions and rounding errors.
+// CompareBytes returns -1 if s1 has lower similarity amongst it bytes than s2, +1 if it's opposite,
+// or 0 if they are equivalent.  Similarity is defined as same / (same+diff)
+func (s1 Similarity) CompareBytes(s2 Similarity) int {
+	// First we simplify the formula to remove float conversions and rounding errors.
+	//                                                                                                  # starting formula
 	// if s1.BytesSame / (s1.BytesSame + s1.BytesDiff) < s2.BytesSame / (s2.BytesSame + s2.BytesDiff) {
-	// if (s1.BytesSame + s1.BytesDiff) / s1.BytesSame > (s2.BytesSame + s2.BytesDiff) / s2.BytesSame { // invert both sides
-	// if (s1.BytesSame + s1.BytesDiff)* s2.BytesSame > (s2.BytesSame + s2.BytesDiff) * s1.BytesSame { // multiply both sides by s1*BytesSame*s2.BytesSame
-	// if s1.BytesSame*s2.BytesSame + s1.BytesDiff* s2.BytesSame > s2.BytesSame*s1.BytesSame + s2.BytesDiff* s1.BytesSame { // work out
-	// if s1.BytesDiff*s2.BytesSame > s2.BytesDiff*s1.BytesSame { // remove common term
-	if s1.BytesDiff*s2.BytesSame > s2.BytesDiff*s1.BytesSame {
+	//                                                                                                  # work out (expand) the divisions to separate terms
+	// if 1 + s1.BytesSame / s1.BytesDiff              < 1 + s2.BytesSame s2.BytesDiff
+	//                                                                                                  # subtract 1 from both sides
+	// if s1.BytesSame/s1.BytesDiff                    < s2.BytesSame/s2.BytesDiff
+	//                                                                                                  # multiply both sides by s1.BytesDiff*s2.BytesDiff
+	// if s1.BytesSame*s2.BytesDiff                    < s2.BytesSame*s1.BytesDiff
+	if s1.BytesSame*s2.BytesDiff < s2.BytesSame*s1.BytesDiff {
+		return -1
+	}
+	if s1.BytesSame*s2.BytesDiff > s2.BytesSame*s1.BytesDiff {
+		return 1
+	}
+	return 0
+}
+
+// Less returns whether s1 is less similar than s2.
+func (s1 Similarity) Less(s2 Similarity) bool {
+	diff := s1.CompareBytes(s2)
+	if diff < 0 {
 		return true
 	}
-	if s1.BytesDiff*s2.BytesSame < s2.BytesDiff*s1.BytesSame {
+	if diff > 0 {
 		return false
 	}
 	return s1.PathSim < s2.PathSim

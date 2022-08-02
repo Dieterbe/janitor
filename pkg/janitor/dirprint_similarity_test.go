@@ -92,3 +92,68 @@ func TestSimilarityIdentical(t *testing.T) {
 	}
 
 }
+
+func TestSimilaritySimilarity(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        Similarity
+		b        Similarity
+		expBytes int
+		expLess  bool
+	}{
+		{
+			name: "empty",
+			a: Similarity{
+				BytesDiff: 0,
+				BytesSame: 0,
+				PathSim:   1,
+			},
+			b: Similarity{
+				BytesDiff: 0,
+				BytesSame: 0,
+				PathSim:   1,
+			},
+			expBytes: 0,
+			expLess:  true,
+		},
+		{name: "same ratio of diff/same, but different pathsim",
+			a: Similarity{
+				BytesDiff: 1000,
+				BytesSame: 1000 * 1000,
+				PathSim:   0.8,
+			},
+			b: Similarity{
+				BytesDiff: 1,
+				BytesSame: 1000,
+				PathSim:   0.9,
+			},
+			expBytes: 0,
+			expLess:  true,
+		},
+		{name: "smaller ratio of diff/same bytes",
+			a: Similarity{
+				BytesDiff: 10,
+				BytesSame: 1000 * 1000,
+				PathSim:   1,
+			},
+			b: Similarity{
+				BytesDiff: 10,
+				BytesSame: 100 * 1000,
+				PathSim:   1,
+			},
+			expBytes: -1,
+			expLess:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.a.CompareBytes(tt.b); got != tt.expBytes {
+				t.Errorf("case %v - CompareBytes() = %v, want %v", tt.name, got, tt.expBytes)
+			}
+			if got := tt.a.Less(tt.b); got != tt.expLess {
+				t.Errorf("case %v - Less() = %v, want %v", tt.name, got, tt.expLess)
+			}
+		})
+	}
+
+}
