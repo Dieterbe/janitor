@@ -16,15 +16,9 @@ type Similarity struct {
 }
 
 func (s Similarity) Identical() bool {
-	if s.BytesDiff > 0 {
-		return false
-	}
+
 	// this is... probably good enough?
-	// TODO bump higher
-	if s.PathSim < 0.8 {
-		return false
-	}
-	return true
+	return s.BytesDiff == 0 && s.PathSim >= 0.99
 }
 
 func (s Similarity) ContentSimilarity() float64 {

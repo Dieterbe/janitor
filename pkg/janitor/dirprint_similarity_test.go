@@ -21,7 +21,7 @@ func TestDirPrintIterate(t *testing.T) {
 	}
 }
 
-func TestSimilarity(t *testing.T) {
+func TestDirPrintSimilarity(t *testing.T) {
 	a := newFilePrintIterator(DataMain2Iterated)
 	b := newFilePrintIterator(DataMain3Iterated)
 	got := NewSimilarity(a, b)
@@ -42,4 +42,53 @@ func TestSimilarity(t *testing.T) {
 	if diff := cmp.Diff(exp, got, opt); diff != "" {
 		t.Errorf("Similarity mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func TestSimilarityIdentical(t *testing.T) {
+	tests := []struct {
+		name string
+		sim  Similarity
+		exp  bool
+	}{
+		{
+			sim: Similarity{
+				BytesDiff: 0,
+				BytesSame: 0,
+				PathSim:   1,
+			},
+			exp: true,
+		},
+		{
+			sim: Similarity{
+				BytesDiff: 0,
+				BytesSame: 100,
+				PathSim:   1,
+			},
+			exp: true,
+		},
+		{
+			sim: Similarity{
+				BytesDiff: 20,
+				BytesSame: 100,
+				PathSim:   1,
+			},
+			exp: false,
+		},
+		{
+			sim: Similarity{
+				BytesDiff: 0,
+				BytesSame: 100,
+				PathSim:   0.8,
+			},
+			exp: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.sim.Identical(); got != tt.exp {
+				t.Errorf("Similarity.Identical() = %v, want %v", got, tt.exp)
+			}
+		})
+	}
+
 }
