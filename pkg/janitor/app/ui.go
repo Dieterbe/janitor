@@ -41,7 +41,7 @@ func (m *model) scan() {
 	perr(err)
 	m.rootDirPrints = []janitor.DirPrint{root}
 	m.allDirPrints = all
-	m.pairSims = janitor.GetPairSims(all)
+	m.pairSims = janitor.GetPairSims(all, m.log)
 }
 
 func newModel(scanPaths []string, log io.Writer) model {

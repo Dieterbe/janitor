@@ -3,6 +3,8 @@ package janitor
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"math"
 	"sort"
 
 	"github.com/adrg/strutil"
@@ -52,6 +54,10 @@ func (s1 Similarity) CompareBytes(s2 Similarity) int {
 		return 1
 	}
 	return 0
+}
+
+func (s Similarity) EqualPathSim(s2 Similarity, delta float64) bool {
+	return math.Abs(s.PathSim-s2.PathSim) < delta
 }
 
 // Less returns whether s1 is less similar than s2.
@@ -113,7 +119,7 @@ func NewSimilarity(a, b Iterator) Similarity {
 		// specifically, that sha256 hashes don't collide.
 		sim.BytesSame += av.Size
 		similarity := strutil.Similarity(av.Path, bv.Path, metrics.NewHamming())
-		//fmt.Printf("similarity between %q and %q is %.2f\n", av.Path, bv.Path, similarity)
+		fmt.Printf("similarity between %q and %q is %.2f\n", av.Path, bv.Path, similarity)
 		sim.PathSim += similarity
 		a.Next()
 		b.Next()
@@ -134,7 +140,7 @@ type PairSim struct {
 }
 
 // keys are paths within an implicit walkPath
-func GetPairSims(all map[string]DirPrint) []PairSim {
+func GetPairSims(all map[string]DirPrint, log io.Writer) []PairSim {
 	type seenKey struct {
 		p1 string
 		p2 string
@@ -165,7 +171,7 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 
 			// don't compare to a subdirectory of self.
 			// e.g. pointless to compare foo/bar/baz to foo/bar , it's obvious they will have some similarity, but not due to redundancy of data warranting cleanup.
-			if SubPath(k1, k2) || SubPath(k2, k1) {
+			if Child(k1, k2) || Child(k2, k1) {
 				continue
 			}
 
@@ -184,32 +190,61 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 				continue
 			}
 
-			// If we already know that either:
-			// - a pair of (grand)parents of dp1/dp2 are identical.
-			// - a pair of a (grand)parent of dp1 and dp2 (or vice versa) are identical.
-			// then there is no value in reporting when:
-			// a) dp1 and dp2 are identical
-			// b) non-symmetrical paths within dp1 and dp2 are not identical (this is debatable, but what we go with for now)
-			// For example:
-			// If a and b are identical,
-			// a) we certainly don't care that a/foo are b/foo identical.
-			// b) we likely don't care that a/somedir and b/some-other-dir are not identical.
-			// Note: We probably still want to know if a/somedir and a/some-other-dir happen to also be identical,
-			// so we don't filter out that case.
-			// This also catches the scenario of this exact pair already having been checked,
-			// which is not necessary, but is harmless and keeps the code simple.
+			// ### PairSim eliding
+			//
+			// Given example identical dirs a/b and foo/b, there are a bunch of pairwise similarity comparisons that
+			// we assume to be non-interesting, and should be dropped.
+			// Below follows an example table of how we iterate over paths, form pairs, and which cases can be skipped.
+			//
+			// Note:
+			// 1) we iterate the tree top down, in sorted order, thus reaching parents before their children, but that's only true for each individual loop,
+			//    not their combination (since we have a dual loop)
+			// 2) only pairs iterated after finding the identical case can be dropped during processing. the others need a post-processing loop.
+			//
+			// Example path pair    | relation to identical | codename | action & comments
+			// k1=a      k2=foo     | parent and parent     | PP       | drop (in theory, could also happen to be full similarity, but that's not useful
+			//                                                           for this exercise cause then these keys would take the roles that we currently give to a/b and foo/b.
+			//                                                           in practice, thanks to the CC rule, the parents won't be equal if the children are, because
+			//                                                           the children would have never been added if the parents were already known to be identical.
+			// k1=a      k2=foo/b   | match and parent      | MP       | drop. some similarity, but known not equal.
+			// k1=a      k2=foo/b/c | parent and child      | CP       | drop. some similarity, but known not equal.
+			// k1=a/b    k2=foo     | match and parent      | MP       | drop. some similarity, but known not equal.
+			// k1=a/b    k2=foo/b   | identical             |          | keep and report! this is the main one the user cares about!
+			// k1=a/b    k2=foo/b/c | child and match       | CM       | drop. some similarity, but known not equal.
+			// k1=a/b/c  k2=foo     | parent and child      | CP       | drop. some similarity, but known not equal.
+			// k1=a/b/c  k2=foo/b   | child and match       | CM       | drop. some similarity, but known not equal.
+			// k1=a/b/c  k2=foo/b/c | child and child       | CC       | drop. known equal.
+			// k1=a/b/c  k2=foo/b/d | child and child       | CC       | drop. possibly, but likely not equal.
+			//
+			// The chosen approach to deal with this is in two steps:
+			// 1) recognize as many cases as possible during the main iteration loop (because it's cheap to consider the small set of
+			//    identical pairs found so far, for each iteration step) - these are the cases that surface after we found the identical pair.
+			// 2) handle the other cases (the ones we found prior to knowing about the identical pair) in a subsequent processing loop.
+			//
+			// There are probably alternative solutions, like using an index to, upon finding identical pairs, cleaning up pairs that we created prior; or do the scanning depth-first (e.g. find similarities of all children before reporting on the parents), try to find the largest identical subtrees first, etc.  This might be the best solution, but needs more thought and brainpower which i don't have right now.
+			// So for now, this should work well enough, and it's quite simple.
+			//
+			// Note that it's not clear-cut that all these cases are always non-interesting. For example, a PP case could still be interesting if they have content
+			// that is similar, beyond their equal children. However, we assume the user would then clean up the identical children, at which point a subsequent run
+			// would expose the remaining similarities of the parents.
 
 			for ident := range seenIdent {
-				a := SubPathInclusive(ident.p1, k1) && SubPathInclusive(ident.p2, k2)
-				b := SubPathInclusive(ident.p1, k2) && SubPathInclusive(ident.p2, k1)
-
-				if a || b {
-
-					fmt.Println("DIE parent", ident, "identical. CAN SKIP", k1, k2)
+				// CC
+				if BothChildren(ident.p1, ident.p2, k1, k2) {
+					fmt.Fprintln(log, "IN-PROCESS DROP:", ident, "were identical. Skipping 2 children      ", k1, k2)
+					continue Loop2
+				}
+				// CM
+				if AChildAMatch(ident.p1, ident.p2, k1, k2) {
+					fmt.Fprintln(log, "IN-PROCESS DROP:", ident, "were identical. Skipping child and match ", k1, k2)
+					continue Loop2
+				}
+				// CP
+				if AChildAParent(ident.p1, ident.p2, k1, k2) {
+					fmt.Fprintln(log, "IN-PROCESS DROP:", ident, "were identical. Skipping child and parent", k1, k2)
 					continue Loop2
 				}
 			}
-
 			it1 := dp1.Iterator()
 			it2 := dp2.Iterator()
 			p := PairSim{
@@ -225,6 +260,37 @@ func GetPairSims(all map[string]DirPrint) []PairSim {
 			pairSims = append(pairSims, p)
 		}
 	}
+
+	// there's a way to do this without allocating a whole new slice. future optimization.
+	filteredPairSims := make([]PairSim, 0, len(pairSims))
+
+	// because we couldn't drop all irrelevant pairs during processing, do so now, in a dedicated loop
+Loop1:
+	for _, p := range pairSims {
+		for ident := range seenIdent {
+			// PP
+			if BothChildren(p.Path1, p.Path2, ident.p1, ident.p2) {
+				// our paths (the parents) should not be identical (otherwise the children would not have been added above), and thus can be dropped
+				if p.Sim.Identical() {
+					panic("this should never happen. post-process case PP found an identical pairsim of children and parents")
+				}
+				fmt.Fprintln(log, "POST-PROCESS DROP:", ident, "were identical. Skipping 2 parents       ", p.Path1, p.Path2)
+				continue Loop1
+			}
+			// MP
+			if AChildAMatch(p.Path1, p.Path2, ident.p1, ident.p2) {
+				fmt.Fprintln(log, "POST-PROCESS DROP:", ident, "were identical. Skipping match and parent", p.Path1, p.Path2)
+				continue Loop1
+			}
+			// CP
+			if AChildAParent(ident.p1, ident.p2, p.Path1, p.Path2) {
+				fmt.Fprintln(log, "POST-PROCESS DROP:", ident, "were identical. Skipping child and parent", p.Path1, p.Path2)
+				continue Loop1
+			}
+		}
+		filteredPairSims = append(filteredPairSims, p)
+	}
+	pairSims = filteredPairSims
 
 	// sort pairSims by Similarity
 	sort.Slice(pairSims, func(i, j int) bool {
