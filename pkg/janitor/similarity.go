@@ -12,8 +12,8 @@ import (
 )
 
 type Similarity struct {
-	BytesSame int64
-	BytesDiff int64
+	BytesSame int64   // number of bytes corresponding to files that match
+	BytesDiff int64   // number of bytes corresponding to files that don't match
 	PathSim   float64 // (average of all path similarities for content with a hash match)
 }
 
@@ -257,6 +257,12 @@ func GetPairSims(all map[string]DirPrint, log io.Writer) []PairSim {
 			} else {
 				seen[sk] = p
 			}
+
+			// there is nothing interesting about pairs that have no files in common
+			if p.Sim.BytesSame == 0 {
+				continue
+			}
+
 			pairSims = append(pairSims, p)
 		}
 	}

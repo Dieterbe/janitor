@@ -90,27 +90,11 @@ func TestGetPairSims(t *testing.T) {
 	// dir2.zip/dir2/dir3/c.txt
 	// dir2.zip/dir2/dir4/d.txt
 
+	// ... and the rest of the dirs have nothing in common, so they are ommitted too.
+	// this test would be a bit more useful if there were some other directories that do have files in common, so they would show up.
+	// perhaps the test below will cover that case.
+
 	expected := []janitor.PairSim{
-		// ... except we do go within them individually to report on relations between directories within them
-		// in this test, there is only the pair of dir3 and dir4 for each of them, and they have nothing in common
-		{
-			Path1: "dir1/dir2/dir3",
-			Path2: "dir1/dir2/dir4",
-			Sim: janitor.Similarity{
-				BytesSame: 0,
-				BytesDiff: 4,
-				PathSim:   0,
-			},
-		},
-		{
-			Path1: "dir2.zip/dir2/dir3",
-			Path2: "dir2.zip/dir2/dir4",
-			Sim: janitor.Similarity{
-				BytesSame: 0,
-				BytesDiff: 4,
-				PathSim:   0,
-			},
-		},
 		{
 			Path1: "dir1/dir2",
 			Path2: "dir2.zip/dir2",
