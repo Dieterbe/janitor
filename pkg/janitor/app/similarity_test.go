@@ -326,15 +326,6 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			},
 		},
 		{
-			Path1: "dir1",
-			Path2: "dir1.zip/dir1",
-			Sim: janitor.Similarity{
-				BytesSame: 8,
-				BytesDiff: 0,
-				PathSim:   1,
-			},
-		},
-		{
 			Path1: "dir1.zip/dir1/dir2",
 			Path2: "dir2-contents.zip",
 			Sim: janitor.Similarity{
@@ -348,6 +339,15 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			Path2: "dir2.zip/dir2",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir1",
+			Path2: "dir1.zip/dir1",
+			Sim: janitor.Similarity{
+				BytesSame: 8,
 				BytesDiff: 0,
 				PathSim:   1,
 			},

@@ -298,9 +298,21 @@ Loop1:
 	}
 	pairSims = filteredPairSims
 
-	// sort pairSims by Similarity
+	// sort pairSims by bytes Similarity, followed by absolute bytes_same and path similarity as fallback
 	sort.Slice(pairSims, func(i, j int) bool {
-		return pairSims[i].Sim.Less(pairSims[j].Sim)
+		si := pairSims[i].Sim
+		sj := pairSims[j].Sim
+		diff := si.CompareBytes(sj)
+		if diff < 0 {
+			return true
+		}
+		if diff > 0 {
+			return false
+		}
+		if si.BytesSame != sj.BytesSame {
+			return si.BytesSame < sj.BytesSame
+		}
+		return si.PathSim < sj.PathSim
 	})
 	return pairSims
 
