@@ -10,6 +10,75 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+// TestGetPairSimsPerfect confirms that we get perfect matches if content _within_ a zip or directory matches, regardless of the name or location of the zip file and directory
+// specifically we have here 2 directories and 1 zip file that should match (the parent dir of one of the matching dirs "otherdir" is ignored due to eliding)
+func TestGetPairSimsPerfect(t *testing.T) {
+	dpWithPath := func(path string) janitor.DirPrint {
+		return janitor.DirPrint{
+			Path: path,
+			Files: []janitor.FilePrint{
+				mkFilePrint("file1.txt", "file contents\n"),
+			},
+		}
+	}
+	dpRoot := janitor.DirPrint{
+		Path: ".",
+		Dirs: []janitor.DirPrint{
+			dpWithPath("dir-in-poorly-named-zip.zip"),
+			dpWithPath("dir-extracted"),
+			{
+				Path: "otherdir",
+				Dirs: []janitor.DirPrint{
+					dpWithPath("copy-of-same-dir"),
+				},
+			},
+		},
+	}
+
+	all := map[string]janitor.DirPrint{
+		".":                           dpRoot,
+		"dir-in-poorly-named-zip.zip": dpRoot.Dirs[0],
+		"dir-extracted":               dpRoot.Dirs[1],
+		"otherdir":                    dpRoot.Dirs[2],
+		"otherdir/copy-of-same-dir":   dpRoot.Dirs[2].Dirs[0],
+	}
+
+	expected := []janitor.PairSim{
+		{
+			Path1: "dir-extracted",
+			Path2: "dir-in-poorly-named-zip.zip",
+			Sim: janitor.Similarity{
+				BytesSame: 14,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir-extracted",
+			Path2: "otherdir/copy-of-same-dir",
+			Sim: janitor.Similarity{
+				BytesSame: 14,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir-in-poorly-named-zip.zip",
+			Path2: "otherdir/copy-of-same-dir",
+			Sim: janitor.Similarity{
+				BytesSame: 14,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, janitor.GetPairSims(all, os.Stderr)); diff != "" {
+		t.Errorf("GetPairSims() mismatch (-want +got):\n%s", diff)
+	}
+
+}
+
 // arguably this file belongs in the janitor package (next to similarity.go), but then we wouldn't have access to app.Walk which we rely on (circular dependency)
 
 // TestGetPairSims tests whether a given set of dirprints results in the expected pairsims
@@ -129,52 +198,29 @@ func TestGetPairSimsTestdata(t *testing.T) {
 
 	pairSims := janitor.GetPairSims(all, os.Stderr)
 	expected := []janitor.PairSim{
-		// non-identical copies of dir2: dir2-and-more and dir2-contents.zip are pitted against each other, and against all other copies
-		// "dir1", "dir1/dir2", "dir1.zip", "dir1.zip/dir1", "dir1.zip/dir1/dir2", "dir2.zip", "dir2.zip/dir2",
-		// the specific pathsim scores (and their differences) are not all that interesting here cause they are not that well calibrated.
-		{
-			Path1: "dir1",
-			Path2: "dir2-contents.zip",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 6,
-				PathSim:   0.13043478260869568,
-			},
-		},
-		{
-			Path1: "dir1.zip/dir1",
-			Path2: "dir2-contents.zip",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 6,
-				PathSim:   0.13043478260869568,
-			},
-		},
+		// Note that "unrelated" doesn't show up as it has nothing in common with anything else.
+		// only the variations of dir1 and dir2 have things in common, and show up.
+
+		// dir2-and-more is a non-identical copy of dir2, and is pitted against all other copies of both dir2 and dir1
+		// (because it is an exact match with neither, both are fair game and nothing in elided from them)
+		// - dir1
+		// - dir1/dir2
+		// - dir1.zip
+		// - dir1.zip/dir1
+		// - dir1.zip/dir1/dir2
+		// - dir2.zip
+		// - dir2.zip/dir2
+		// - dir2-contents.zip
+		// We see pathsim scores of 0 and 1.
+		// The pathsim scores of 0 are a bit on the harsh side as they do have some commonalities
+
 		{
 			Path1: "dir1",
 			Path2: "dir2-and-more",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
 				BytesDiff: 16,
-				PathSim:   0.1578947368421053,
-			},
-		},
-		{
-			Path1: "dir1.zip/dir1",
-			Path2: "dir2-and-more",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 16,
-				PathSim:   0.1578947368421053,
-			},
-		},
-		{
-			Path1: "dir1.zip",
-			Path2: "dir2-contents.zip",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 6,
-				PathSim:   0.16666666666666663,
+				PathSim:   0,
 			},
 		},
 		{
@@ -183,43 +229,16 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			Sim: janitor.Similarity{
 				BytesSame: 2,
 				BytesDiff: 16,
-				PathSim:   0.20833333333333337,
+				PathSim:   0,
 			},
 		},
 		{
-			Path1: "dir1.zip/dir1/dir2",
+			Path1: "dir1.zip/dir1",
 			Path2: "dir2-and-more",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
-				BytesDiff: 10,
-				PathSim:   0.21052631578947367,
-			},
-		},
-		{
-			Path1: "dir2-and-more",
-			Path2: "dir2.zip/dir2",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 10,
-				PathSim:   0.21052631578947367,
-			},
-		},
-		{
-			Path1: "dir1/dir2",
-			Path2: "dir2-and-more",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 10,
-				PathSim:   0.21052631578947367,
-			},
-		},
-		{
-			Path1: "dir2-and-more",
-			Path2: "dir2-contents.zip",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 10,
-				PathSim:   0.21739130434782605,
+				BytesDiff: 16,
+				PathSim:   0,
 			},
 		},
 		{
@@ -228,50 +247,66 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			Sim: janitor.Similarity{
 				BytesSame: 2,
 				BytesDiff: 10,
-				PathSim:   0.5789473684210527,
+				PathSim:   0,
+			},
+		},
+		{
+			Path1: "dir2-and-more",
+			Path2: "dir2-contents.zip",
+			Sim: janitor.Similarity{
+				BytesSame: 2,
+				BytesDiff: 10,
+				PathSim:   1,
 			},
 		},
 		{
 			Path1: "dir1.zip/dir1/dir2",
-			Path2: "dir2-contents.zip",
+			Path2: "dir2-and-more",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
-				BytesDiff: 0,
-				PathSim:   0.17391304347826086,
+				BytesDiff: 10,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir2-and-more",
+			Path2: "dir2.zip/dir2",
+			Sim: janitor.Similarity{
+				BytesSame: 2,
+				BytesDiff: 10,
+				PathSim:   1,
 			},
 		},
 		{
 			Path1: "dir1/dir2",
-			Path2: "dir2-contents.zip",
+			Path2: "dir2-and-more",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
-				BytesDiff: 0,
-				PathSim:   0.17391304347826086,
-			},
-		},
-		{
-			Path1: "dir2-contents.zip",
-			Path2: "dir2.zip",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 0,
-				PathSim:   0.17391304347826086,
-			},
-		},
-		{
-			Path1: "dir2-contents.zip",
-			Path2: "dir2.zip/dir2",
-			Sim: janitor.Similarity{
-				BytesSame: 2,
-				BytesDiff: 0,
-				PathSim:   0.17391304347826086,
+				BytesDiff: 10,
+				PathSim:   1,
 			},
 		},
 
-		// identical copies of dir2 and dir1
-		// dir1 can be found in: dir1, dir1.zip/dir1
-		// dir2 can be found in: dir1/dir2, dir1.zip/dir1/dir2, dir2.zip/dir2, which results in 3 pairs.
-		// However, since the dir1-dir1.zip/dir1 relationship is already reported, the relationships of the dir2 dirs within them are elided.
+		// identical copies of dir1 can be found in:
+		// - dir1
+		// - dir1.zip/dir1
+		// -> so this one pair is reported
+		// identical copies of dir2 can be found in:
+		// - dir1/dir2
+		// - dir1.zip/dir1/dir2
+		// - dir2.zip/dir2
+		// - dir2-contents.zip
+		// -> this would result in 6 pairwise combinations, to report
+		//    However, since the dir1 <-> dir1.zip/dir1 relationship is already reported, the relationships of the dir2 dirs within them are elided.
+		{
+			Path1: "dir1.zip/dir1/dir2",
+			Path2: "dir2.zip/dir2",
+			Sim: janitor.Similarity{
+				BytesSame: 2,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
 		{
 			Path1: "dir1/dir2",
 			Path2: "dir2.zip/dir2",
@@ -282,8 +317,8 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			},
 		},
 		{
-			Path1: "dir1.zip/dir1/dir2",
-			Path2: "dir2.zip/dir2",
+			Path1: "dir1/dir2",
+			Path2: "dir2-contents.zip",
 			Sim: janitor.Similarity{
 				BytesSame: 2,
 				BytesDiff: 0,
@@ -295,6 +330,24 @@ func TestGetPairSimsTestdata(t *testing.T) {
 			Path2: "dir1.zip/dir1",
 			Sim: janitor.Similarity{
 				BytesSame: 8,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir1.zip/dir1/dir2",
+			Path2: "dir2-contents.zip",
+			Sim: janitor.Similarity{
+				BytesSame: 2,
+				BytesDiff: 0,
+				PathSim:   1,
+			},
+		},
+		{
+			Path1: "dir2-contents.zip",
+			Path2: "dir2.zip/dir2",
+			Sim: janitor.Similarity{
+				BytesSame: 2,
 				BytesDiff: 0,
 				PathSim:   1,
 			},

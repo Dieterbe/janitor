@@ -40,11 +40,13 @@ func (dp DirPrint) Iterator() Iterator {
 	it := newFilePrintIterator(dp.Files)
 	it.Next()
 	dpi.its = append(dpi.its, it)
+	dpi.itPaths = append(dpi.itPaths, "")
 
 	for _, d := range dp.Dirs {
 		it := d.Iterator()
 		it.Next()
 		dpi.its = append(dpi.its, it)
+		dpi.itPaths = append(dpi.itPaths, d.Path)
 	}
 
 	return &dpi
@@ -91,43 +93,44 @@ func (fpi *FilePrintIterator) Value() (FilePrint, bool) {
 // - an iterator for all its filePrints
 // - an iterator for each child directory
 type DirPrintIterator struct {
-	path  string
-	v     FilePrint
-	valid bool
-	its   []Iterator
+	path    string
+	v       FilePrint
+	valid   bool
+	its     []Iterator // iterators over . and all subdirs
+	itPaths []string   // paths describing each iterator ("" for current dir)
 }
 
-func (fpi *DirPrintIterator) Next() bool {
+func (dpi *DirPrintIterator) Next() bool {
 	var toAdvance int
-	fpi.valid = false
+	dpi.valid = false
 
 	// collect the lowest value hash from all iterators' current values
 	// this will be our return value
-	for i, it := range fpi.its {
+	for i, it := range dpi.its {
 		v, ok := it.Value()
 		if !ok {
 			continue
 		}
-		if !fpi.valid {
-			fpi.v = v
-			fpi.valid = true
+		if !dpi.valid {
+			dpi.v = v
+			dpi.valid = true
 			toAdvance = i
-		} else if bytes.Compare(v.Hash[:], fpi.v.Hash[:]) < 0 {
-			fpi.v = v
+		} else if bytes.Compare(v.Hash[:], dpi.v.Hash[:]) < 0 {
+			dpi.v = v
 			toAdvance = i
 		}
 	}
 
-	if fpi.valid {
+	if dpi.valid {
 
 		// advance the iterator we have chosen to consume from
-		fpi.its[toAdvance].Next()
+		dpi.its[toAdvance].Next()
 
 		// when we pull a fileprint into its parent dir, we need to update the path accordingly.
-		fpi.v.Path = filepath.Join(fpi.path, fpi.v.Path)
+		dpi.v.Path = filepath.Join(dpi.itPaths[toAdvance], dpi.v.Path)
 	}
 
-	return fpi.valid
+	return dpi.valid
 }
 
 func (fpi *DirPrintIterator) Value() (FilePrint, bool) {
