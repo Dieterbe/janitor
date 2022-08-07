@@ -15,8 +15,10 @@ import (
 func walkZipFile(path string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 
 	zipfs, err := zip.OpenReader(path)
+	if err != nil {
+		return janitor.DirPrint{}, nil, err
+	}
 
-	perr(err)
 	defer zipfs.Close()
 
 	// FYI. zipfs implements these types
@@ -82,7 +84,8 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 				path := filepath.Join(walkPath, p)
 				dp, all, err := walkZipFile(path, fpr, log)
 				if err != nil {
-					return err
+					fmt.Fprintln(log, "ERR", logPrefix, "walkZip returned error:", err, " -> skipping zip file")
+					return nil
 				}
 				for k, v := range all {
 					// normally if you call a walk function, the paths of returned dirprints don't include the walkPath prefix, as it is implied.
