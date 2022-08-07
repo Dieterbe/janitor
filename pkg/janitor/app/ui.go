@@ -96,7 +96,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := "Processed directories:\n\n"
+	s := "Similarities found:\n\n"
 
 	for i, ps := range m.pairSims {
 
