@@ -15,7 +15,10 @@ func TestSha256FingerPrint(t *testing.T) {
 		Hash: FooHash,
 	}
 
-	got := Sha256FingerPrint("foo", strings.NewReader("foo"))
+	got, err := Sha256FingerPrint("foo", strings.NewReader("foo"))
+	if err != nil {
+		t.Errorf("Fingerprint unexpected error %v", err)
+	}
 
 	if diff := cmp.Diff(exp, got); diff != "" {
 		t.Errorf("Fingerprint mismatch for foo (-want +got):\n%s", diff)
@@ -26,7 +29,11 @@ func TestSha256FingerPrint(t *testing.T) {
 		Size: 3,
 		Hash: BarHash,
 	}
-	got = Sha256FingerPrint("bar", strings.NewReader("bar"))
+	got, err = Sha256FingerPrint("bar", strings.NewReader("bar"))
+	if err != nil {
+		t.Errorf("Fingerprint unexpected error %v", err)
+	}
+
 	if diff := cmp.Diff(exp, got); diff != "" {
 		t.Errorf("Fingerprint mismatch for bar (-want +got):\n%s", diff)
 	}

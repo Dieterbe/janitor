@@ -2,6 +2,7 @@ package app
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -19,6 +20,7 @@ func walkZipFile(path string, fpr janitor.FingerPrinter, log io.Writer) (janitor
 		return janitor.DirPrint{}, nil, err
 	}
 
+	// we effectively ignore Close() errors here. AFAIK this is fine.
 	defer zipfs.Close()
 
 	// FYI. zipfs implements these types
@@ -30,17 +32,18 @@ func walkZipFile(path string, fpr janitor.FingerPrinter, log io.Writer) (janitor
 }
 
 func WalkZip(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
-	return Walk(f, "WalkZIP: ", walkPath, fpr, log)
+	return Walk(f, "WalkZIP: ", walkPath, fpr, log, true)
 }
 
 func WalkFS(f fs.FS, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
-	return Walk(f, "WalkFS : ", walkPath, fpr, log)
+	return Walk(f, "WalkFS : ", walkPath, fpr, log, false)
 }
 
 // WalkFS walks the filesystem rooted at walkPath (absolute path to a directory or zip file)
 // and generates the Prints for all folders, files and zip files encountered
 // it returns the root DirPrint and all individual dirprints by path within walkPath (which is implicit)
-func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
+// crit means whether any error should fail the entire walk at the root level, or only skip the directory where the error occurs
+func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Writer, crit bool) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 	if !strings.HasPrefix(walkPath, "/") {
 		panic(fmt.Sprintf("expected an absolute path. not %q - may not be strictly necessary, but it makes output clearer. this should never happen", walkPath))
 	}
@@ -57,16 +60,30 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 	// in fact, for this tool, let's deliberately allow path elements like ../../foo/bar, because eliding them would remove information about the path within the zip.
 
 	walkDirFn := func(p string, d fs.DirEntry, err error) error {
+
 		logPrefix := logPrefix + ": WalkDir " + p
-		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "callback received error", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
+
+		// handleErr logs the error, and for a critical error, reports the failure, otherwise skips
+		handleErr := func(msg string, err error) error {
+			if !crit {
+				fmt.Fprintln(log, "WARN", logPrefix, msg, err, "..skipping dir")
+				return fs.SkipDir
+			}
+			fmt.Fprintln(log, "ERR", logPrefix, msg, err, "..aborting")
 			return err
+		}
+
+		if err != nil {
+			return handleErr("received Stat(root) or ReadDir(dir) error", err)
 		}
 
 		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintln(log, "ERR", logPrefix, "d.info() error:", err, "..aborting") // WalkFS could skip (return fs.SkipDir) here
-			return err
+			if errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintln(log, "WARN", logPrefix, "file disappeared while walking. error:", err, "..skipping this file")
+				return nil
+			}
+			return handleErr("d.info() error", err)
 		}
 
 		if d.Name() == "__MACOSX" && info.IsDir() {
@@ -84,8 +101,7 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 				path := filepath.Join(walkPath, p)
 				dp, all, err := walkZipFile(path, fpr, log)
 				if err != nil {
-					fmt.Fprintln(log, "ERR", logPrefix, "walkZip returned error:", err, " -> skipping zip file")
-					return nil
+					return handleErr("walkZip returned error:", err)
 				}
 				for k, v := range all {
 					// normally if you call a walk function, the paths of returned dirprints don't include the walkPath prefix, as it is implied.
@@ -100,9 +116,17 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 			} else {
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as standalone file...")
 				fd, err := f.Open(p)
-				perr(err)
-				pr := fpr(filepath.Base(p), fd)
-				fd.Close()
+				if err != nil {
+					return handleErr("f.Open() error", err)
+				}
+				pr, err := fpr(filepath.Base(p), fd)
+				if err != nil {
+					return handleErr("Fingerprint (io.Read) returned error:", err)
+				}
+				err = fd.Close()
+				if err != nil {
+					fmt.Fprintln(log, "WARN", logPrefix, "fd.Close() returned error:", err, "..afaik these are harmless after read-only access. so ignoring")
+				}
 				dpStack[len(dpStack)-1].Files = append(dpStack[len(dpStack)-1].Files, pr)
 			}
 		}
@@ -110,8 +134,15 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 		return nil
 	}
 
-	doneDirFn := func(p string, d fs.DirEntry) error {
+	doneDirFn := func(p string, d fs.DirEntry, err error) error {
 		logPrefix := logPrefix + ": DoneDir " + p
+
+		if err != nil {
+			// walking this dir was aborted
+			fmt.Fprintln(log, "INF", logPrefix, "POP: discarding directory due to error")
+			dpStack = dpStack[:len(dpStack)-1]
+			return nil
+		}
 
 		dpAll[p] = dpStack[len(dpStack)-1] // our stack should always have at least 1 element.
 

@@ -43,3 +43,4 @@ DirPrints are dynamically generated.
 * `fs.WalkDir` uses lexical ordering, which makes things easier (consistent ordering of directory entries) and predictable (children are always walked after their parent).
 This is true whether walking a real filesystem or a zip file.
 * always log to the provided `log` file descriptor, never to stdout/stderr, as it messes with the TUI.
+* if an error happens while walking a directory, that directory is omitted, but its parent (and other children) are still processed.  In a future version, we should also omit all parents (and grandparents) of the failing directory - this includes the root walking dir - as to only leave directories that have comprehensive (fully accurate) dirPrints. Since a directory's dirprint relies on accuracy of the dirprint of all its children.  For now, keep this into account: when errors happen, they will be logged, and take similarity reports for (grand)parents with a grain of salt.

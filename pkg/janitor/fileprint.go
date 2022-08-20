@@ -18,18 +18,20 @@ func (fp FilePrint) String() string {
 	return fmt.Sprintf("FilePrint %10d %x %s", fp.Size, fp.Hash, fp.Path)
 }
 
-type FingerPrinter func(path string, r io.Reader) FilePrint
+type FingerPrinter func(path string, r io.Reader) (FilePrint, error)
 
 // Sha256FingerPrint computes the sha256 based fingerprint for the given file content
-func Sha256FingerPrint(base string, r io.Reader) FilePrint {
+func Sha256FingerPrint(base string, r io.Reader) (FilePrint, error) {
 	pr := FilePrint{Path: base}
 
 	h := sha256.New()
 	var err error
 	pr.Size, err = io.Copy(h, r)
-	perr(err)
+	if err != nil {
+		return pr, err
+	}
 	sum := h.Sum(nil)
 	copy(pr.Hash[:], sum)
 
-	return pr
+	return pr, nil
 }
