@@ -1,5 +1,11 @@
 github.com/Dieterbe/fswalk v0.0.0-20220705124011-de420095b3b8 h1:yWcyRSDsnhWIsyxJcrqXGZwhgXWzdVa+b+HlXEMgXyA=
 github.com/Dieterbe/fswalk v0.0.0-20220705124011-de420095b3b8/go.mod h1:U5QpaRlAXs5mQJQG8/oB0KAtakeF0wl2UX3S4vfhSFI=
+github.com/Dieterbe/fswalk v0.0.0-20220808064454-600044d3f674 h1:rvZfDpK2i+g02iZakk/ttR8BN2apZC+i1lpFPBGJS5k=
+github.com/Dieterbe/fswalk v0.0.0-20220808064454-600044d3f674/go.mod h1:U5QpaRlAXs5mQJQG8/oB0KAtakeF0wl2UX3S4vfhSFI=
+github.com/Dieterbe/fswalk v0.0.0-20220820201434-524fb689a2b7 h1:SAMBqdbapRK8MwSrv9SDcBQv//83J66Ow6CAiMOtA0c=
+github.com/Dieterbe/fswalk v0.0.0-20220820201434-524fb689a2b7/go.mod h1:U5QpaRlAXs5mQJQG8/oB0KAtakeF0wl2UX3S4vfhSFI=
+github.com/Dieterbe/fswalk v0.0.0-20220820203209-a54c365e6b92 h1:0V6YvIEeFqkg565AP+Mjh+03m9mlBv8hiapU1H3bUXA=
+github.com/Dieterbe/fswalk v0.0.0-20220820203209-a54c365e6b92/go.mod h1:U5QpaRlAXs5mQJQG8/oB0KAtakeF0wl2UX3S4vfhSFI=
 github.com/adrg/strutil v0.3.0 h1:bi/HB2zQbDihC8lxvATDTDzkT4bG7PATtVnDYp5rvq4=
 github.com/adrg/strutil v0.3.0/go.mod h1:Jz0wzBVE6Uiy9wxo62YEqEY1Nwto3QlLl1Il5gkLKWU=
 github.com/charmbracelet/bubbletea v0.21.0 h1:f3y+kanzgev5PA916qxmDybSHU3N804uOnKnhRPXTcI=
