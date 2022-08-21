@@ -13,9 +13,7 @@ Similarly, I may have zip files for which the extracted content is in a differen
 
 ## Interactivity
 
-I often don't even know in advance 
-1) what kind of a mess I made
-2) what kind of files I will encounter in a directory (if the directory can't be treated as a whole). They may have different purposes or types (`$HOME/downloads` is a good example)
+I often don't even know in advance what kind of files I will encounter in a directory (if the directory can't be treated as a whole). They may have different purposes or types (`$HOME/downloads` is a good example)
 
 This means an interactive program where I can see previews, and do very quick 1-by-1 processing where needed (remembering common actions/preferences) seems better,
 rather than a CLI tool or shell scripts where you have to configure many special arguments or cases and hope that it'll apply correctly.
@@ -30,7 +28,7 @@ but in absence of that, [charm.sh/bubbletea](https://github.com/charmbracelet/bu
 
 ## Implementation details
 
-see [./implementation.md](implementation details)
+see [./docs/implementation.md](implementation details)
 
 
 no symlink support at all. you can create loops or cause the same files to be rescanned if symlinks point to already scanned data, which may lead to false positives!

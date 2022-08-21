@@ -6,7 +6,7 @@
 * The same is true for all encountered zip files, which can be thought of as a "compressed directory".
 * Every subfolder and zip file in the scanpath is represented by a DirPrint, even subfolders within zip files. While the user can't remove directories inside of zip files, it seems useful information, though this can be changed.
 * Similarity between DirPrints consists of 2 values:
-  - content similarity: num_bytes_matching / (num_bytes_matching + num_bytes_non_matching)
+  - content similarity: `num_bytes_matching / (num_bytes_matching + num_bytes_non_matching)`
   - path similarity: average string similarity of path/filenames for matching content.
 * `__MACOSX` folders don't seem to have any use and are completely ignored. (this could be turned into a preference if needed)
 
