@@ -12,6 +12,7 @@ import (
 
 	"github.com/Dieterbe/janitor/pkg/janitor"
 	"github.com/Dieterbe/janitor/pkg/janitor/errfs"
+	"github.com/Dieterbe/janitor/pkg/janitor/mkzip"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -47,20 +48,46 @@ func TestWalk(t *testing.T) {
 	}
 }
 
-// regular File: open, stat, read, close // DONE
-// Dir: open, stat, read, close, readDir, direntryinfo // DONE
-// zip File: open, stat, read, close // TODO
-// same but regular file and dir inside of zipfile // TODO
+// TestWalkWithErrorsRegularFile tests behavior on a filesystem tree when any of the FS, File or Directory operations fail, where the file is a regular file
+func TestWalkWithErrorsRegularFile(t *testing.T) {
+	testWalkWithErrors(t, false)
+}
 
-// TestWalkWithErrors tests behavior when any of the FS, File or Directory operations fail, where the file is a regular file
-// we can look at the case where the file is a zipfile, later
-func TestWalkWithErrors(t *testing.T) {
+// TestWalkWithErrorsZipFile tests behavior on a filesystem tree when any of the FS, File or Directory operations fail, where the file is a zip file
+func TestWalkWithErrorsZipFile(t *testing.T) {
+	testWalkWithErrors(t, true)
+}
+
+// for completeness, it would also be good to simulate all the directory/file failures _inside_ of a zip file, ie when the fs.FS we're iterating is a zip file,
+// we should verify how that impacts the walking. but that's an exercise for the future...
+
+// testWalkWithErrors tests behavior on a filesystem tree when any of the FS, File or Directory operations fail.
+// Note that our walking will never call file.Stat(), dir.Stat() or dir.Read() so those paths aren't actually exercised.
+func testWalkWithErrors(t *testing.T, fileIsZip bool) {
 	// Set up a structure with a possible failure on the file2 within a directory, amongst some other files.
 	// This allows proper testing of "abort only the current directory" behavior
+	fname := "dir/file2"
+	fbase := "file2"
+	fData := []byte("bar")
+	fSize := int64(3)
+	fHash := janitor.BarHash
+	if fileIsZip {
+		// construct a small real zip file, for those cases where we do sucessfully read into the file,
+		// to not accidentally break anything else.
+		fname = "dir/file2.zip"
+		fbase = "file2.zip"
+		dataInZip := []mkzip.Entry{
+			{Path: "a", Body: "foobar"},
+			{Path: "b", Body: "foobar"},
+		}
+		fData, _ = mkzip.MustDo(dataInZip)
+		fSize = int64(len(fData))
+		fHash = sha256.Sum256(fData)
+	}
 	baseFS := fstest.MapFS{
 		"a":         {Data: []byte("foo")},
 		"dir/file1": {Data: []byte("foo")},
-		"dir/file2": {Data: []byte("bar")},
+		fname:       {Data: fData},
 		"dir/file3": {Data: []byte("foobar")},
 		"z":         {Data: []byte("bar")},
 	}
@@ -75,12 +102,41 @@ func TestWalkWithErrors(t *testing.T) {
 				Path: "dir",
 				Files: []janitor.FilePrint{
 					{Path: "file1", Size: 3, Hash: janitor.FooHash},
-					{Path: "file2", Size: 3, Hash: janitor.BarHash},
+					{Path: fbase, Size: fSize, Hash: fHash},
 					{Path: "file3", Size: 6, Hash: janitor.FooBarHash},
 				},
 			},
 		},
 	}
+	if fileIsZip {
+		// a zip is represented as a directory, not a regular file!
+		printsNoErr = janitor.DirPrint{
+			Path: ".",
+			Files: []janitor.FilePrint{
+				{Path: "a", Size: 3, Hash: janitor.FooHash},
+				{Path: "z", Size: 3, Hash: janitor.BarHash},
+			},
+			Dirs: []janitor.DirPrint{
+				{
+					Path: "dir",
+					Files: []janitor.FilePrint{
+						{Path: "file1", Size: 3, Hash: janitor.FooHash},
+						{Path: "file3", Size: 6, Hash: janitor.FooBarHash},
+					},
+					Dirs: []janitor.DirPrint{
+						{
+							Path: fbase,
+							Files: []janitor.FilePrint{
+								{Path: "a", Size: 6, Hash: janitor.FooBarHash},
+								{Path: "b", Size: 6, Hash: janitor.FooBarHash},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
 	printsDirSkipped := printsNoErr
 	printsDirSkipped.Dirs = nil
 
@@ -102,8 +158,8 @@ func TestWalkWithErrors(t *testing.T) {
 			name:   "file-open",
 			baseFS: baseFS,
 			errors: map[string]errfs.Errs{
-				"dir/file2": {
-					Open: &fs.PathError{Op: "read", Path: "dir/file2", Err: fs.ErrNotExist},
+				fname: {
+					Open: &fs.PathError{Op: "read", Path: fname, Err: fs.ErrNotExist},
 				},
 			},
 			// if we can't open any file in a dir, we should skip the dir
@@ -114,7 +170,7 @@ func TestWalkWithErrors(t *testing.T) {
 			name:   "file-stat",
 			baseFS: baseFS,
 			errors: map[string]errfs.Errs{
-				"dir/file2": {
+				fname: {
 					Stat: errors.New("dummy stat error"),
 				},
 			},
@@ -126,8 +182,8 @@ func TestWalkWithErrors(t *testing.T) {
 			name:   "file-read",
 			baseFS: baseFS,
 			errors: map[string]errfs.Errs{
-				"dir/file2": {
-					Read: &fs.PathError{Op: "read", Path: "dir/file2", Err: fs.ErrPermission},
+				fname: {
+					Read: &fs.PathError{Op: "read", Path: fname, Err: fs.ErrPermission},
 				},
 			},
 			// if we can't read any file in a dir, we should skip the dir
@@ -138,7 +194,7 @@ func TestWalkWithErrors(t *testing.T) {
 			name:   "file-close",
 			baseFS: baseFS,
 			errors: map[string]errfs.Errs{
-				"dir/file2": {
+				fname: {
 					Close: errors.New("dummy close error"),
 				},
 			},
