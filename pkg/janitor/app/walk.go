@@ -2,6 +2,7 @@ package app
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,20 +14,21 @@ import (
 	"github.com/Dieterbe/janitor/pkg/janitor"
 )
 
-func walkZipFile(path string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
+func walkZipReader(fd fs.File, path string, fpr janitor.FingerPrinter, log io.Writer) (janitor.DirPrint, map[string]janitor.DirPrint, error) {
 
-	zipfs, err := zip.OpenReader(path)
+	// fd is an io.Reader, but we need an io.ReaderAt; so "convert" it
+	var buf bytes.Buffer
+	size, err := io.Copy(&buf, fd)
 	if err != nil {
 		return janitor.DirPrint{}, nil, err
 	}
 
-	// we effectively ignore Close() errors here. AFAIK this is fine.
-	defer zipfs.Close()
+	readerAt := bytes.NewReader(buf.Bytes())
 
-	// FYI. zipfs implements these types
-	var _ fs.FS = zipfs
-	var _ zip.ReadCloser = *zipfs
-	var _ zip.Reader = zipfs.Reader
+	zipfs, err := zip.NewReader(readerAt, size)
+	if err != nil {
+		return janitor.DirPrint{}, nil, err
+	}
 
 	return WalkZip(zipfs, path, fpr, log)
 }
@@ -98,11 +100,16 @@ func Walk(f fs.FS, prefix, walkPath string, fpr janitor.FingerPrinter, log io.Wr
 		} else {
 			if filepath.Ext(p) == ".zip" {
 				fmt.Fprintln(log, "INF", logPrefix, "fingerprinting as a zip directory...")
+				fd, err := f.Open(p)
+				if err != nil {
+					return handleErr("f.Open() error", err)
+				}
 				path := filepath.Join(walkPath, p)
-				dp, all, err := walkZipFile(path, fpr, log)
+				dp, all, err := walkZipReader(fd, path, fpr, log)
 				if err != nil {
 					return handleErr("walkZip returned error:", err)
 				}
+				fd.Close() // ignore error. AFAIK this is fine after read-only access
 				for k, v := range all {
 					// normally if you call a walk function, the paths of returned dirprints don't include the walkPath prefix, as it is implied.
 					// since we called walk within our walk, we have to prepend the portion of the path after (within) *our* walkPath
